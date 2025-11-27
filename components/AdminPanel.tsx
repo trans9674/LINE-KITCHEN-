@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PREFECTURES } from '../constants';
 
@@ -317,7 +316,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings, onUpdateSettings, onC
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[90] flex justify-center items-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[95vh] flex flex-col relative">
         <header className="p-4 border-b flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-bold">管理者設定</h2>

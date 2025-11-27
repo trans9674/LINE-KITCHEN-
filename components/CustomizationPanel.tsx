@@ -612,6 +612,15 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   {cupboardDepths.map(d => <button key={d} onClick={() => updateConfig('cupboardDepth', d)} disabled={(config.cupboardType === 'tall' || config.cupboardType === 'mix') && d !== 45} className={`py-3 rounded-lg border ${config.cupboardDepth === d ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'} disabled:bg-gray-200 disabled:opacity-50`}>{d} cm</button>)}
                                 </div>
                               </div>
+                              {config.cupboardType === 'mix' && (
+                                <div>
+                                  <label className="block text-base font-medium text-gray-700 mb-2">配置</label>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={() => updateConfig('cupboardLayout', 'left')} className={`py-3 rounded-lg border ${config.cupboardLayout === 'left' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>左 (L)</button>
+                                    <button onClick={() => updateConfig('cupboardLayout', 'right')} className={`py-3 rounded-lg border ${config.cupboardLayout === 'right' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>右 (R)</button>
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
                         </div>

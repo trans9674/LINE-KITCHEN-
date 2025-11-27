@@ -84,7 +84,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const [sceneOption, setSceneOption] = useState<'none' | 'dining2'>('none');
   const [showPartLabels, setShowPartLabels] = useState(false);
-  const [floorOption, setFloorOption] = useState<'none' | 'oak' | 'tile' | 'stone' | 'herringbone' | 'tile-black'>('none');
+  const [floorOption, setFloorOption] = useState<'none' | 'oak' | 'tile' | 'stone' | 'herringbone' | 'tile-black'>('oak');
 
   const [hoveredPartIndex, setHoveredPartIndex] = useState<number | null>(null);
   const [selectedPartIndex, setSelectedPartIndex] = useState<number | null>(null);
@@ -100,8 +100,8 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
   const lastHoverUpdateRef = useRef<number>(0);
 
   const visualConfigStr = useMemo(() => {
-    const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, confirmedCupboard } = config;
-    return JSON.stringify({ doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, confirmedCupboard });
+    const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard } = config;
+    return JSON.stringify({ doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard });
   }, [config]);
 
   const getOptionName = <T extends string>(options: DoorOption<T>[], id: T): string => {
@@ -514,7 +514,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
              rightPanel.position.set(uw/2 - panelThick/2, 0, 0);
              rightPanel.receiveShadow = true; uGroup.add(rightPanel);
              
-             if (unitType !== 'wall') {
+             if (unitType !== 'wall' && unitType !== 'tall') {
                  const backPanelThick = 0.005;
                  const backPanel = createCabinetMesh(uw, uh, backPanelThick, materials.cabinet);
                  backPanel.position.set(0, 0, -ud/2 + backPanelThick/2 - 0.001);
@@ -630,6 +630,11 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                  const ch = new THREE.Mesh(new THREE.BoxGeometry(innerW, channelH, ud - 0.02), materials.rail);
                  ch.position.set(0, chY + channelH/2, 0);
                  uGroup.add(ch);
+
+                 const body = createCabinetMesh(innerW, uh, ud - doorThick, materials.cabinet);
+                 body.position.set(0, 0, -doorThick/2);
+                 body.receiveShadow = true;
+                 uGroup.add(body);
              }
              
              return uGroup;
@@ -662,14 +667,18 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
           } else if (type === 'mix') {
               const tallW = 0.90;
               const sepW = w - tallW;
+              const isFlipped = currentConfig.cupboardLayout === 'right';
               
               if (sepW > 0) {
+                  const tallX = isFlipped ? (-w/2 + tallW/2) : (w/2 - tallW/2);
+                  const sepX = isFlipped ? (w/2 - sepW/2) : (-w/2 + sepW/2);
+
                   const tallPart = createUnit(tallW, tallH, d, tallH/2, 'tall');
-                  tallPart.position.x = w/2 - tallW/2;
+                  tallPart.position.x = tallX;
                   group.add(tallPart);
 
                   const sepGroup = new THREE.Group();
-                  sepGroup.position.x = -w/2 + sepW/2;
+                  sepGroup.position.x = sepX;
                   
                   const unitH = baseH - topT;
                   const base = createUnit(sepW, unitH, d, (unitH)/2, 'base');
@@ -680,8 +689,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
 
                   const upperH = 0.7;
                   const upperY = tallH - upperH/2;
-                  const upperD = 0.35;
-                  sepGroup.add(createUnit(sepW, upperH, upperD, upperY, 'wall'));
+                  sepGroup.add(createUnit(sepW, upperH, d, upperY, 'wall'));
                   
                   group.add(sepGroup);
               } else {
@@ -711,7 +719,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
           doubleSidePanel: boolean = false, 
           extraOverhang: number = 0, 
           forceBackPanel: boolean = false,
-          backStyle: BackStyleId | 'none' = 'none',
+          backStyle: BackStyleId | 'none' = 'none', 
           forceLeftPanel: boolean = false,
           leftPanelMaterial: 'worktop' | 'cabinet' = 'worktop',
           rightPanelMaterial: 'worktop' | 'cabinet' = 'worktop',
@@ -840,23 +848,18 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                  }
                  
                  if (currentConfig.sinkBaseType === 'open') {
-                    // This space intentionally left blank to create an open area under the sink.
-                    
-                    // Add towel hanger
                     const hangerGroup = new THREE.Group();
                     const hangerMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, metalness: 0.1 });
 
                     const barLength = 0.30;
                     const barRadius = 0.008;
 
-                    // The horizontal bar
                     const barGeo = new THREE.CylinderGeometry(barRadius, barRadius, barLength, 12);
                     const barMesh = new THREE.Mesh(barGeo, hangerMaterial);
                     barMesh.rotation.z = Math.PI / 2;
                     barMesh.castShadow = true;
                     barMesh.receiveShadow = true;
 
-                    // The supports
                     const supportLength = 0.04;
                     const supportGeo = new THREE.CylinderGeometry(barRadius, barRadius, supportLength, 12);
 
@@ -872,13 +875,12 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                     
                     hangerGroup.add(barMesh, support1, support2);
 
-                    // Position the hanger group
-                    const counterBottomY = h + revealH; // The Y position of the counter's bottom surface, relative to the zoneGroup's base
-                    hangerGroup.position.y = counterBottomY - 0.05; // 5cm below the counter
-                    hangerGroup.position.z = localD / 2; // Attach to the front face of the cabinet body
+                    const counterBottomY = h + revealH; 
+                    hangerGroup.position.y = counterBottomY - 0.05; 
+                    hangerGroup.position.z = localD / 2; 
                     
                     zoneGroup.add(hangerGroup);
-                 } else { // 'drawers'
+                 } else { 
                     const bottom = createCabinetMesh(displayW, thick, Math.max(0.001, localD - thick*2), mat);
                     bottom.position.set(0, thick/2, 0); zoneGroup.add(bottom);
                     
@@ -923,22 +925,15 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
 
                 const panelGeo = new THREE.BoxGeometry(displayW, Math.max(0.001, panelH), thick);
                 if(shouldScaleCabinet) {
-                    // Manually assign materials and scale UVs for the cabinet parts of multi-material mesh
                     const scale = cabinetRepeatFactor;
                     const uvs = panelGeo.getAttribute('uv');
                     const [w, h, d] = [displayW, Math.max(0.001, panelH), thick];
                     
-                    // Right (+x) - mat 0
                     for (let i = 0; i < 4; i++) { uvs.setXY(i, uvs.getX(i) * d * scale, uvs.getY(i) * h * scale); }
-                    // Left (-x) - mat 1
                     for (let i = 4; i < 8; i++) { uvs.setXY(i, uvs.getX(i) * d * scale, uvs.getY(i) * h * scale); }
-                    // Top (+y) - mat 2
                     for (let i = 8; i < 12; i++) { uvs.setXY(i, uvs.getX(i) * w * scale, uvs.getY(i) * d * scale); }
-                    // Bottom (-y) - mat 3
                     for (let i = 12; i < 16; i++) { uvs.setXY(i, uvs.getX(i) * w * scale, uvs.getY(i) * d * scale); }
-                    // Back (-z) - mat 5
                     for (let i = 20; i < 24; i++) { uvs.setXY(i, uvs.getX(i) * w * scale, uvs.getY(i) * h * scale); }
-                    // Front (+z) - mat 4 is dishwasher, no scaling needed for it's special texture
                     uvs.needsUpdate = true;
                 }
                 const panelMesh = new THREE.Mesh(panelGeo, panelMats);
@@ -1748,7 +1743,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
       const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); sceneRef.current = scene;
       
       const camera = new THREE.PerspectiveCamera(45, mountNode.clientWidth / mountNode.clientHeight, 0.1, 100);
-      camera.position.set(1.8, 1.5, 2.5); cameraRef.current = camera;
+      camera.position.set(2.0, 1.7, 2.8); cameraRef.current = camera;
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(mountNode.clientWidth, mountNode.clientHeight); renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -2209,7 +2204,8 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
       const sinkBaseTypeChanged = prevConfigRef.current ? prevConfigRef.current.sinkBaseType !== config.sinkBaseType : false;
       const typeIIStyleChanged = prevConfigRef.current ? prevConfigRef.current.typeIIStyle !== config.typeIIStyle : false;
       const cupboardChanged = prevConfigRef.current ? (prevConfigRef.current.cupboardType !== config.cupboardType || prevConfigRef.current.cupboardWidth !== config.cupboardWidth || prevConfigRef.current.cupboardDepth !== config.cupboardDepth) : false;
-      const isStructuralChange = doorTypeChanged || widthChanged || heightChanged || backStyleChanged || sinkBaseTypeChanged || typeIIStyleChanged || cupboardChanged;
+      const cupboardLayoutChanged = prevConfigRef.current ? prevConfigRef.current.cupboardLayout !== config.cupboardLayout : false;
+      const isStructuralChange = doorTypeChanged || widthChanged || heightChanged || backStyleChanged || sinkBaseTypeChanged || typeIIStyleChanged || cupboardChanged || cupboardLayoutChanged;
       const isInitialSelection = prevConfigRef.current?.doorType === 'unselected' && config.doorType !== 'unselected';
 
       prevConfigRef.current = config;

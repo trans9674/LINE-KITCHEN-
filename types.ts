@@ -117,6 +117,7 @@ export interface DoorConfiguration {
   cupboardType: CupboardTypeId;
   cupboardWidth: number;
   cupboardDepth: number;
+  cupboardLayout: 'left' | 'right';
   confirmedCupboard: {
     type: CupboardTypeId;
     width: number;

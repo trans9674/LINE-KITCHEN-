@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface PasswordModalProps {
@@ -16,7 +15,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ value, onChange, onSubmit
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-[80] flex justify-center items-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
         <form onSubmit={handleSubmit}>
           <div className="p-6">

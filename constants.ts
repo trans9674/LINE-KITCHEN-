@@ -1,3 +1,4 @@
+
 // FIX: Added CupboardTypeId to the import list to resolve a type error.
 import { DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, StorageOptionId, KitchenOptionId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, DoorConfiguration, CupboardPriceMatrix, CupboardCounterPriceMatrix, CupboardDoorPriceMatrix, CupboardStorageTypeId, CupboardOptionPanelId, CupboardTypeId, ColorId } from './types';
 
@@ -451,6 +452,7 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   cupboardType: 'none',
   cupboardWidth: 169,
   cupboardDepth: 45,
+  cupboardLayout: 'left',
   confirmedCupboard: null,
 };
 
@@ -473,8 +475,8 @@ export const PREFECTURES = Object.keys(SHIPPING_RATES);
 export const CUPBOARD_PRICES: CupboardPriceMatrix = {
   floor: { 45: { 94: 115000, 169: 187000, 184: 202000, 244: 260000, 259: 275000, 274: 290000 }, 60: { 94: 125000, 169: 197000, 184: 212000, 244: 270000, 259: 285000, 274: 300000 }, 65: { 94: 125000, 169: 197000, 184: 212000, 244: 270000, 259: 285000, 274: 300000 } },
   separate: { 45: { 94: 200000, 169: 310000, 184: 335000, 244: 430000, 259: 455000, 274: 480000 }, 60: { 94: 210000, 169: 320000, 184: 345000, 244: 440000, 259: 465000, 274: 490000 }, 65: { 94: 210000, 169: 320000, 184: 345000, 244: 440000, 259: 465000, 274: 490000 } },
-  tall: { 45: { 94: 220000, 169: 350000, 184: 380000, 244: 490000, 259: 520000, 274: 550000 }, 60: {}, 65: {} },
-  mix: { 45: { 169: 374000, 184: 398000, 244: 508000, 259: 538000, 274: 568000 }, 60: {}, 65: {} }
+  tall: { 45: { 94: 220000, 169: 350000, 184: 380000, 244: 490000, 259: 520000, 274: 550000 } },
+  mix: { 45: { 169: 374000, 184: 398000, 244: 508000, 259: 538000, 274: 568000 } }
 };
 
 export const CUPBOARD_COUNTER_PRICES: CupboardCounterPriceMatrix = {
