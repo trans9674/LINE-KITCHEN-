@@ -233,20 +233,23 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
     switch (floorOption) {
         case 'oak': 
             url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg'; 
-            tintColor = 0xcccccc; // Apply a slight gray tint to darken
+            tintColor = 0x777777; // Apply a gray tint to darken
             break;
         case 'tile': 
             url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tile.jpg'; 
+            tintColor = 0x888888;
             break;
         case 'stone': 
             url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/stone.jpg'; 
+            tintColor = 0x555555;
             break;
         case 'herringbone': 
             url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg'; 
-            tintColor = 0xcccccc; // Apply a slight gray tint to darken
+            tintColor = 0x999999; // Apply a gray tint to darken
             break;
         case 'tile-black': 
-            url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg'; 
+            url = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg';
+            tintColor = 0x666666; // Darken the texture
             break;
         case 'none':
         default:
@@ -264,8 +267,8 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
            
            if (floorOption === 'tile') {
                tex.repeat.set(8.25, 8.25);
-           } else if (floorOption === 'tile-black') {
-               tex.repeat.set(25, 25);
+           } else if (floorOption === 'tile-black' || floorOption === 'oak') {
+               tex.repeat.set(12.5, 12.5); // Make texture 2x larger
            } else {
                tex.repeat.set(25, 25);
            }
@@ -492,7 +495,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
           if (type === 'none') return group;
 
           const w = widthCm * 0.01;
-          const d = depthCm * 0.01;
+          const d = (type === 'mix' ? 45 : depthCm) * 0.01;
           const baseH = currentConfig.height * 0.01;
           const tallH = 2.05; 
           const topT = 0.02;
@@ -838,6 +841,43 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                  
                  if (currentConfig.sinkBaseType === 'open') {
                     // This space intentionally left blank to create an open area under the sink.
+                    
+                    // Add towel hanger
+                    const hangerGroup = new THREE.Group();
+                    const hangerMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8, metalness: 0.1 });
+
+                    const barLength = 0.30;
+                    const barRadius = 0.008;
+
+                    // The horizontal bar
+                    const barGeo = new THREE.CylinderGeometry(barRadius, barRadius, barLength, 12);
+                    const barMesh = new THREE.Mesh(barGeo, hangerMaterial);
+                    barMesh.rotation.z = Math.PI / 2;
+                    barMesh.castShadow = true;
+                    barMesh.receiveShadow = true;
+
+                    // The supports
+                    const supportLength = 0.04;
+                    const supportGeo = new THREE.CylinderGeometry(barRadius, barRadius, supportLength, 12);
+
+                    const support1 = new THREE.Mesh(supportGeo, hangerMaterial);
+                    support1.position.set(-barLength / 2 + barRadius * 2, 0, -supportLength / 2);
+                    support1.castShadow = true;
+                    support1.receiveShadow = true;
+
+                    const support2 = new THREE.Mesh(supportGeo, hangerMaterial);
+                    support2.position.set(barLength / 2 - barRadius * 2, 0, -supportLength / 2);
+                    support2.castShadow = true;
+                    support2.receiveShadow = true;
+                    
+                    hangerGroup.add(barMesh, support1, support2);
+
+                    // Position the hanger group
+                    const counterBottomY = h + revealH; // The Y position of the counter's bottom surface, relative to the zoneGroup's base
+                    hangerGroup.position.y = counterBottomY - 0.05; // 5cm below the counter
+                    hangerGroup.position.z = localD / 2; // Attach to the front face of the cabinet body
+                    
+                    zoneGroup.add(hangerGroup);
                  } else { // 'drawers'
                     const bottom = createCabinetMesh(displayW, thick, Math.max(0.001, localD - thick*2), mat);
                     bottom.position.set(0, thick/2, 0); zoneGroup.add(bottom);
@@ -1539,16 +1579,19 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
         
             // --- Seat Rails ---
             const railRadius = 0.012;
-            const srL = new THREE.Mesh(new THREE.CylinderGeometry(railRadius, railRadius, 0.38, 8), woodMat);
-            srL.rotation.x = Math.PI / 2;
-            srL.position.set(0.24, seatH - 0.02, 0.04); 
-            srL.lookAt(new THREE.Vector3(0.24, seatH - 0.02, -0.12));
+            
+            const sideRailLeftCurve = new THREE.LineCurve3(
+                new THREE.Vector3(0.25, seatH - 0.02, 0.20),
+                new THREE.Vector3(0.23, seatH - 0.02, -0.12)
+            );
+            const srL = new THREE.Mesh(new THREE.TubeGeometry(sideRailLeftCurve, 1, railRadius, 8, false), woodMat);
             chairGroup.add(srL);
         
-            const srR = new THREE.Mesh(new THREE.CylinderGeometry(railRadius, railRadius, 0.38, 8), woodMat);
-            srR.rotation.x = Math.PI / 2;
-            srR.position.set(-0.24, seatH - 0.02, 0.04);
-            srR.lookAt(new THREE.Vector3(-0.24, seatH - 0.02, -0.12));
+            const sideRailRightCurve = new THREE.LineCurve3(
+                new THREE.Vector3(-0.25, seatH - 0.02, 0.20),
+                new THREE.Vector3(-0.23, seatH - 0.02, -0.12)
+            );
+            const srR = new THREE.Mesh(new THREE.TubeGeometry(sideRailRightCurve, 1, railRadius, 8, false), woodMat);
             chairGroup.add(srR);
             
             const frCurve = new THREE.CatmullRomCurve3([
@@ -1578,11 +1621,11 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
         
             // --- Top Rail (Corrected) ---
             const trCurve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-0.25, armH, 0.20),      // Connect to Left Front Leg
-                new THREE.Vector3(-0.20, totalH - 0.02, -0.20),  // Connect to Left Back Leg
+                new THREE.Vector3(-0.25, armH, 0.20),      // Connect to Right Front Leg
+                new THREE.Vector3(-0.20, totalH - 0.02, -0.20),  // Connect to Right Back Leg
                 new THREE.Vector3(0, totalH, -0.22),            // Back Center
-                new THREE.Vector3(0.20, totalH - 0.02, -0.20),   // Connect to Right Back Leg
-                new THREE.Vector3(0.25, armH, 0.20)       // Connect to Right Front Leg
+                new THREE.Vector3(0.20, totalH - 0.02, -0.20),   // Connect to Left Back Leg
+                new THREE.Vector3(0.25, armH, 0.20)       // Connect to Left Front Leg
             ]);
             const topRail = new THREE.Mesh(new THREE.TubeGeometry(trCurve, 32, 0.018, 16, false), woodMat);
             chairGroup.add(topRail);
@@ -1605,9 +1648,9 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
             const yGeo = new THREE.ExtrudeGeometry(yShape, { depth: 0.015, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
             const yMesh = new THREE.Mesh(yGeo, woodMat);
             
-            yMesh.rotation.x = -0.25; 
+            yMesh.rotation.x = 0.28; 
             // Position adjusted to sit correctly on back rail and connect to top rail
-            yMesh.position.set(0, seatH - 0.01, -0.11);
+            yMesh.position.set(0, seatH - 0.02, -0.12);
         
             chairGroup.add(yMesh);
         
@@ -1648,7 +1691,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
 
     const rect = mountRef.current.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const y = -((e.clientY - rect.top) / rect.height) * 2 - 1;
     mouseRef.current.set(x, y);
 
     raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
@@ -1730,7 +1773,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
       transformControlsRef.current = transformControls;
 
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.2); scene.add(hemiLight);
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); 
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); 
       dirLight.position.set(-5, 15, -5); dirLight.castShadow = true; dirLight.shadow.bias = -0.0001;
       dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
       dirLight.shadow.camera.top = 10; dirLight.shadow.camera.bottom = -10; dirLight.shadow.camera.left = -10; dirLight.shadow.camera.right = 10;
@@ -1826,8 +1869,8 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                       controls.minPolarAngle = 0; 
                       controls.maxPolarAngle = Math.PI;
                       controls.rotateSpeed = 0.5; // Lower sensitivity for touch
-                      camera.position.set(2.8, 2.8, 2.8); 
-                      camera.lookAt(0, 0.4, 0);
+                      camera.position.set(1.5, 1.4, 2.8);
+                      controls.target.set(0, 0.8, 0);
                   } else {
                       controls.enableZoom = true; 
                       controls.enablePan = false; 
@@ -2310,11 +2353,12 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
                     Dining Set
                   </button>
               </div>
+              <span className="text-[10px] font-bold text-gray-500 bg-white/50 px-2 rounded w-fit self-start">Scene</span>
               <div className="flex gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('oak'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg)', filter: 'brightness(0.85)'}} title="Oak Floor"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('oak'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg)', filter: 'brightness(0.7)'}} title="Oak Floor"></button>
                   <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tile.jpg)'}} title="Tile"></button>
                   <button onClick={(e) => { e.stopPropagation(); setFloorOption('stone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/stone.jpg)'}} title="Stone"></button>
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('herringbone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg)', filter: 'brightness(0.85)'}} title="Herringbone"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('herringbone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg)', filter: 'brightness(0.7)'}} title="Herringbone"></button>
                   <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile-black'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg)'}} title="Black Tile"></button>
               </div>
           </div>

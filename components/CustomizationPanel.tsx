@@ -46,7 +46,7 @@ const DoorCategoryIcon: React.FC<{ id: string, className?: string }> = ({ id, cl
     fill: "none",
     viewBox: "0 0 24 24",
     stroke: "currentColor",
-    strokeWidth: 2
+    strokeWidth: 1.5
   };
 
   let displayId = id;
@@ -58,7 +58,7 @@ const DoorCategoryIcon: React.FC<{ id: string, className?: string }> = ({ id, cl
     case 'peninsula': return <svg {...commonProps}><rect x="2" y="8" width="18" height="8" /><rect x="5" y="10" width="6" height="4" /><line x1="20" y1="4" x2="20" y2="20" /></svg>;
     case 'island': return <svg {...commonProps}><rect x="3" y="8" width="18" height="8" /><rect x="6" y="10" width="6" height="4" /></svg>;
     case 'type-ii': return <svg {...commonProps}><rect x="4" y="6" width="16" height="5" /><rect x="4" y="13" width="16" height="5" /><rect x="6" y="14" width="6" height="3" /></svg>;
-    case 'type-i': return <svg {...commonProps}><rect x="3" y="9" width="18" height="8" /><rect x="6" y="11" width="6" height="4" /><line x1="2" y1="9" x2="22" y2="9" /></svg>;
+    case 'type-i': return <svg {...commonProps}><rect x="3" y="9" width="18" height="8" /><rect x="6" y="11" width="6" height="4" /><line x1="0" y1="9" x2="24" y2="9" /></svg>;
     default: return null;
   }
 };
@@ -296,7 +296,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                     }} 
                     className={`group relative flex flex-col items-center justify-center p-4 lg:p-6 rounded-xl border-2 transition-all duration-200 ${isActive ? 'border-[#8b8070] bg-[#f5f2eb] shadow-md scale-[1.02]' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-lg'}`}
                   >
-                    <DoorCategoryIcon id={dt.id} className={`h-14 lg:h-20 w-14 lg:w-20 mb-2 transition-colors duration-200 ${isActive ? 'text-[#8b8070]' : 'text-gray-400 group-hover:text-[#8b8070]'}`} />
                     <span className={`font-bold text-base lg:text-lg text-center mb-1 ${isActive ? 'text-[#5d5448]' : 'text-gray-800'}`}>{dt.name}</span>
                     <span className="text-sm lg:text-base text-gray-500">{dt.price.toLocaleString()}円〜</span>
                   </button>
@@ -580,7 +579,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                             <button onClick={handleSubPanelBack} className="p-2 rounded-full hover:bg-gray-200 transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                             </button>
-                            <h2 className="text-xl font-bold ml-4">{subPanelTitle}</h2>
+                            <h2 className="text-xl font-bold ml-4 hidden lg:block">{subPanelTitle}</h2>
                         </div>
                         <button
                           onClick={() => setActiveSubPanel(null)}
@@ -618,8 +617,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                         </div>
                         <div className="flex-shrink-0 p-6 border-t bg-gray-50">
                           <div className="flex justify-end items-baseline gap-3 mb-4">
-                            <p className="text-sm text-gray-600">追加価格</p>
-                            <p className="text-2xl font-bold">{cupboardSelectionPrice.toLocaleString()}円</p>
+                            <p className="text-sm text-gray-600">カップボード価格</p>
+                            <p className="text-4xl font-bold">{cupboardSelectionPrice.toLocaleString()}円</p>
                           </div>
                           <button onClick={handleConfirmCupboard} className="w-full bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all">決定</button>
                         </div>
@@ -633,7 +632,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             </div>
 
             {/* Price Display */}
-            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white/80 backdrop-blur-sm z-10">
+            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white/80 backdrop-blur-sm z-10 hidden lg:block">
                 <div className="flex justify-between items-center">
                     <p className="text-base text-gray-600">見積り価格 <span className="text-sm">(税別)</span></p>
                     <p className="text-3xl lg:text-4xl font-bold text-gray-800 tracking-tight">{totalPrice.toLocaleString()} <span className="text-base font-normal">円</span></p>
@@ -643,19 +642,19 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
         
         {/* Item Confirmation Modal */}
         {itemConfirmation.isOpen && itemConfirmation.item && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setItemConfirmation({ isOpen: false, item: null, onConfirm: null })}>
-            <div ref={cupboardPanelRef} className="bg-white rounded-xl shadow-lg w-full max-w-lg m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="absolute inset-0 z-30 flex items-end pb-12 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setItemConfirmation({ isOpen: false, item: null, onConfirm: null })}>
+            <div ref={cupboardPanelRef} className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-800 text-center mb-4">選択内容の確認</h3>
-                <div className="w-full aspect-video bg-gray-100 rounded-lg overflow-hidden mb-4">
+                <h3 className="text-sm font-bold text-gray-800 text-center mb-4">選択内容の確認</h3>
+                <div className="w-full aspect-square bg-gray-100 rounded-lg overflow-hidden mb-4">
                   {itemConfirmation.item.swatchUrl ? (
                     <img src={getProxiedImageUrl(itemConfirmation.item.swatchUrl)} alt={itemConfirmation.item.name} className="w-full h-full object-contain" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm italic">画像なし</div>
                   )}
                 </div>
-                <p className="text-lg font-bold text-gray-800 text-center">{itemConfirmation.item.name}</p>
-                <p className="text-xl font-semibold text-gray-700 text-center mt-1">+{itemConfirmation.item.price.toLocaleString()}円</p>
+                <p className="text-xs font-bold text-gray-800 text-center">{itemConfirmation.item.name}</p>
+                <p className="text-sm font-semibold text-gray-700 text-center mt-1">+{itemConfirmation.item.price.toLocaleString()}円</p>
               </div>
               <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl">
                 <button
@@ -681,8 +680,8 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Cupboard 3D Confirmation Modal */}
         {cupboardConfirmation.isOpen && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardConfirmation({ isOpen: false, onConfirm: null })}>
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardConfirmation({ isOpen: false, onConfirm: null })}>
+            <div className="bg-white rounded-xl shadow-lg w-[70%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 text-center">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">確認</h3>
                 <p className="text-gray-600">

@@ -216,28 +216,25 @@ const App: React.FC = () => {
           <header className="bg-white shadow-md flex-shrink-0 z-20 relative">
             <div className="container mx-auto px-4 py-4 lg:py-6 flex justify-between items-center">
               <div className="flex items-baseline gap-2 lg:gap-4 overflow-hidden">
-                <h1 className="text-base lg:text-3xl font-light tracking-[0.2em] text-gray-800 whitespace-nowrap">
+                <h1 className="text-xl lg:text-3xl font-light tracking-[0.2em] text-gray-800 whitespace-nowrap">
                   LINE KITCHEN
                 </h1>
-                <span className="hidden lg:inline-block text-[10px] lg:text-lg font-light tracking-widest text-gray-500 pb-1 whitespace-nowrap">
-                  Build Your Best Kitchen
+                <span className="hidden lg:inline-block text-lg font-light tracking-widest text-gray-500 pb-1 whitespace-nowrap">
                 </span>
                 {projectInfo.customerName && (
                   <span className="text-xs lg:text-sm font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded truncate self-end mb-1">{projectInfo.customerName} 様</span>
                 )}
               </div>
                <div className="flex items-center gap-4">
-                <button onClick={() => setShowProjectInfoModal(true)} className="flex items-center justify-center w-10 h-10 text-gray-600 bg-[#e7e4db] rounded-full hover:bg-[#dcd8cd] transition-colors">
+                <div className="lg:hidden text-right">
+                  <p className="text-xs text-gray-600">見積り価格(税別)</p>
+                  <p className="text-xl font-bold text-gray-800 -mt-1 tracking-tight">{totalPrice.toLocaleString()}円</p>
+                </div>
+                <button onClick={() => setShowProjectInfoModal(true)} className="hidden lg:flex items-center justify-center w-10 h-10 text-gray-600 bg-[#e7e4db] rounded-full hover:bg-[#dcd8cd] transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                </button>
-                <button onClick={handleAdminClick} className="hidden lg:flex items-center justify-center w-10 h-10 text-gray-600 bg-gray-200 rounded-full hover:bg-gray-300 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
                 </button>
               </div>
             </div>
@@ -280,6 +277,7 @@ const App: React.FC = () => {
             onClose={() => setShowProjectInfoModal(false)} 
             shippingRates={appSettings.shippingRates} 
             onGenerate={handleGenerateDocument}
+            onAdminClick={handleAdminClick}
           />
       )}
     </div>

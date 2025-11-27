@@ -7,7 +7,7 @@ const DoorCategoryIcon: React.FC<{ id: string, className?: string }> = ({ id, cl
     fill: "none",
     viewBox: "0 0 24 24",
     stroke: "currentColor",
-    strokeWidth: 2
+    strokeWidth: 1.5
   };
 
   let displayId = id;
@@ -44,7 +44,7 @@ const DoorCategoryIcon: React.FC<{ id: string, className?: string }> = ({ id, cl
         <svg {...commonProps}>
           <rect x="3" y="9" width="18" height="8" />
           <rect x="6" y="11" width="6" height="4" />
-          <line x1="2" y1="9" x2="22" y2="9" />
+          <line x1="0" y1="9" x2="24" y2="9" />
         </svg>
       );
     default:
