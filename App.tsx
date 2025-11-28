@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDoorConfiguration } from './hooks/useDoorConfiguration';
 import CustomizationPanel from './components/CustomizationPanel';
-import DoorPreview from './components/DoorPreview';
+import DoorPreview, { DoorPreviewHandle } from './components/DoorPreview';
 import AdminPanel from './components/AdminPanel';
 import PasswordModal from './components/PasswordModal';
 import ProjectInfoModal from './components/ProjectInfoModal';
@@ -53,9 +53,21 @@ const mergeOptions = (defaults: any[], saved: any[]): any[] => {
   });
 };
 
+const SECTION_NAMES: { [key: string]: string } = {
+  type: 'キッチンタイプ',
+  size: 'サイズ・レイアウト',
+  counter: 'カウンター & オプション',
+  color: '扉・カウンターカラー',
+  equipment: '設備オプション',
+  cupboard: 'カップボード',
+  other: 'その他オプション'
+};
+
 const App: React.FC = () => {
   const [appState, setAppState] = useState<'splash' | 'selecting' | 'configuring'>('splash');
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [touchedSections, setTouchedSections] = useState<Set<string>>(new Set());
+  const doorPreviewRef = useRef<DoorPreviewHandle>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -142,6 +154,8 @@ const App: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
 
   const [showProjectInfoModal, setShowProjectInfoModal] = useState(false);
+  const [validationModal, setValidationModal] = useState<{ isOpen: boolean; missingSections: string[] }>({ isOpen: false, missingSections: [] });
+  const [confirmationModal, setConfirmationModal] = useState<{ isOpen: boolean; type: 'presentation' | 'quotation' | 'drawing' | null }>({ isOpen: false, type: null });
   
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({
     customerName: '',
@@ -155,7 +169,9 @@ const App: React.FC = () => {
     setTimeout(() => {
       updateConfig('doorType', type);
       setAppState('configuring');
-    }, 500); // Must match fade-out animation duration
+      // Kitchen type selection implicitly touches 'type'
+      setTouchedSections(new Set(['type'])); 
+    }, 500); 
   };
 
   const visibleDoorTypes = useMemo(() => {
@@ -176,15 +192,59 @@ const App: React.FC = () => {
     return uniqueItems;
   }, [appSettings.doorTypes]);
 
-  const handleGenerateDocument = (type: 'presentation' | 'quotation' | 'drawing') => {
-      // If there are no saved doors, create a temporary list containing the current configuration.
+  const handleSectionTouch = (section: string) => {
+    setTouchedSections(prev => new Set(prev).add(section));
+  };
+
+  const handleGenerateRequest = (type: 'presentation' | 'quotation' | 'drawing') => {
+      // Validation Logic
+      const requiredSections = ['size', 'counter', 'color', 'equipment', 'other'];
+      // Check for cupboard if it is selected but not confirmed, or if we want to force user to visit the tab if they selected a cupboard type.
+      // For simplicity, let's include 'cupboard' if cupboardType is not 'none' and not confirmed.
+      // Or just check if the tab was visited if cupboard type is set.
+      if (config.cupboardType !== 'none') {
+          // If cupboard is selected, we require it to be 'confirmed' or at least the section visited.
+          // The visual checkmark logic in CustomizationPanel uses confirmedCupboard.
+          // Let's use the checkmark logic: the user must have 'finished' the section.
+          // For simplicity, let's just check if they visited the tab if they selected a type.
+          requiredSections.push('cupboard');
+      }
+
+      const missingSections = requiredSections.filter(key => {
+          if (key === 'cupboard') {
+              return config.cupboardType !== 'none' && !config.confirmedCupboard;
+          }
+          return !touchedSections.has(key);
+      });
+
+      if (missingSections.length > 0) {
+          // Show validation error
+          setShowProjectInfoModal(false); // Close project modal to allow fixing
+          setValidationModal({ isOpen: true, missingSections });
+      } else {
+          // Show confirmation
+          setConfirmationModal({ isOpen: true, type });
+      }
+  };
+
+  const handleActualGenerate = () => {
+      const type = confirmationModal.type;
+      if (!type) return;
+
+      let screenshotUrl = null;
+      if (type === 'presentation' && doorPreviewRef.current) {
+          screenshotUrl = doorPreviewRef.current.getScreenshot();
+      }
+
       const doorsToPrint = savedDoors.length > 0 ? savedDoors : [{
           id: 'current-preview',
           config: config,
           price: totalPrice,
           roomName: 'Current Plan'
       }];
-      generateDocument(type, doorsToPrint, appSettings, projectInfo);
+      generateDocument(type, doorsToPrint, appSettings, projectInfo, screenshotUrl);
+      setConfirmationModal({ isOpen: false, type: null });
+      setShowProjectInfoModal(false); // Close project info modal after generation
   };
 
   const handleProjectInfoComplete = (info: ProjectInfo) => {
@@ -249,11 +309,13 @@ const App: React.FC = () => {
                     totalPrice={totalPrice}
                     settings={appSettings}
                     onConfirmCupboard={confirmCupboard}
+                    touchedSections={touchedSections}
+                    onSectionTouch={handleSectionTouch}
                   />
                 </div>
               )}
               <div className="flex-1 lg:w-[70%] w-full h-1/2 lg:h-full relative order-1 lg:order-2">
-                  <DoorPreview config={config} {...appSettings} />
+                  <DoorPreview ref={doorPreviewRef} config={config} {...appSettings} />
               </div>
           </main>
         </>
@@ -276,10 +338,59 @@ const App: React.FC = () => {
             onComplete={handleProjectInfoComplete} 
             onClose={() => setShowProjectInfoModal(false)} 
             shippingRates={appSettings.shippingRates} 
-            onGenerate={handleGenerateDocument}
+            onGenerate={handleGenerateRequest}
             onAdminClick={handleAdminClick}
           />
       )}
+
+      {/* Validation Error Modal */}
+      {validationModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setValidationModal({ isOpen: false, missingSections: [] })} />
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative z-10 animate-fade-in">
+            <h3 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4z" /></svg>
+              入力未完了
+            </h3>
+            <div className="mb-4 text-left">
+              <p className="text-gray-700 mb-2 text-sm">以下の項目の選択が完了していません：</p>
+              <ul className="list-disc list-inside bg-red-50 p-3 rounded border border-red-100 text-sm text-gray-700">
+                {validationModal.missingSections.map(section => (
+                  <li key={section}>{SECTION_NAMES[section] || section}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setValidationModal({ isOpen: false, missingSections: [] })}
+              className="w-full py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors font-bold"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationModal.isOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setConfirmationModal({ isOpen: false, type: null })} />
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 relative z-10 animate-fade-in text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">
+                    {confirmationModal.type === 'presentation' && 'プレゼンボードを作成'}
+                    {confirmationModal.type === 'quotation' && '御見積書を作成'}
+                    {confirmationModal.type === 'drawing' && '詳細図を作成'}
+                </h3>
+                <p className="text-gray-600 text-sm mb-6">
+                    現在の内容で書類を作成しますか？
+                </p>
+                <div className="flex gap-3 justify-center">
+                    <button onClick={() => setConfirmationModal({ isOpen: false, type: null })} className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold">キャンセル</button>
+                    <button onClick={handleActualGenerate} className="flex-1 px-4 py-2 bg-[#8b8070] text-white rounded-lg hover:bg-[#797061] transition-colors shadow-md font-bold">作成する</button>
+                </div>
+            </div>
+          </div>
+      )}
+
     </div>
   );
 };

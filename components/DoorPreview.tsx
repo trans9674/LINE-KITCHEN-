@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -56,7 +56,11 @@ interface DoorPreviewProps {
   modelLibrary?: Record<string, { url: string; type: 'glb' | 'fbx' }>;
 }
 
-const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, customModelUrl, modelLibrary }) => {
+export interface DoorPreviewHandle {
+  getScreenshot: () => string | null;
+}
+
+const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, colors, doorTypes, customModelUrl, modelLibrary }, ref) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -98,6 +102,16 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
   // Throttle refs
   const lastRaycastTimeRef = useRef<number>(0);
   const lastHoverUpdateRef = useRef<number>(0);
+
+  useImperativeHandle(ref, () => ({
+    getScreenshot: () => {
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+        return rendererRef.current.domElement.toDataURL('image/png');
+      }
+      return null;
+    }
+  }));
 
   const visualConfigStr = useMemo(() => {
     const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard } = config;
@@ -1744,7 +1758,9 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
       
       const camera = new THREE.PerspectiveCamera(45, mountNode.clientWidth / mountNode.clientHeight, 0.1, 100);
       camera.position.set(2.0, 1.7, 2.8); cameraRef.current = camera;
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      
+      // FIX: preserveDrawingBuffer: true is required for toDataURL to work robustly without immediate re-render
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
       renderer.setSize(mountNode.clientWidth, mountNode.clientHeight); renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping; 
@@ -1939,7 +1955,7 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
           }
       };
   }, []);
-  
+
   useEffect(() => {
     const transformControls = transformControlsRef.current;
     const model = importedModelRef.current;
@@ -2362,6 +2378,6 @@ const DoorPreview: React.FC<DoorPreviewProps> = ({ config, colors, doorTypes, cu
       )}
     </div>
   );
-};
+});
 
 export default DoorPreview;

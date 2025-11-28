@@ -99,7 +99,21 @@ const DoorList: React.FC<DoorListProps> = ({ doors, onDelete, onUpdate, doorType
         handles: [], 
         glassStyles: [], 
         locks: [],
-        dividers: []
+        dividers: [],
+        dishwashers: [],
+        gasStoves: [],
+        ihHeaters: [],
+        rangeHoods: [],
+        rangeHoodOptions: [],
+        faucets: [],
+        sinkAccessories: [],
+        kitchenPanels: [],
+        storageOptions: [],
+        kitchenOptions: [],
+        cupboardTypes: [],
+        cupboardPrices: {},
+        cupboardDoorPrices: {},
+        cupboardCounterPrices: {}
     };
     generateDocument(type, doors, settings, projectInfo);
   };

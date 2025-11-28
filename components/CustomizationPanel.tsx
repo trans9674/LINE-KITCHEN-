@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId } from '../types';
 import { getProxiedImageUrl } from '../utils';
@@ -26,6 +25,8 @@ interface CustomizationPanelProps {
     cupboardCounterPrices: any;
   };
   onConfirmCupboard: () => void;
+  touchedSections: Set<string>;
+  onSectionTouch: (section: string) => void;
 }
 
 type SectionKey = 'type' | 'size' | 'counter' | 'color' | 'equipment' | 'cupboard' | 'other';
@@ -39,29 +40,6 @@ const ColorSwatch: React.FC<{ color: ColorOption; active: boolean; onClick: () =
     <p className="text-xs text-gray-600 truncate">{color.name}</p>
   </button>
 );
-
-const DoorCategoryIcon: React.FC<{ id: string, className?: string }> = ({ id, className }) => {
-  const commonProps = {
-    className: className || "h-12 w-12",
-    fill: "none",
-    viewBox: "0 0 24 24",
-    stroke: "currentColor",
-    strokeWidth: 1.5
-  };
-
-  let displayId = id;
-  if (id.startsWith('type-ii-stove-') || id.startsWith('new-')) {
-    displayId = 'type-ii';
-  }
-
-  switch (displayId) {
-    case 'peninsula': return <svg {...commonProps}><rect x="2" y="8" width="18" height="8" /><rect x="5" y="10" width="6" height="4" /><line x1="20" y1="4" x2="20" y2="20" /></svg>;
-    case 'island': return <svg {...commonProps}><rect x="3" y="8" width="18" height="8" /><rect x="6" y="10" width="6" height="4" /></svg>;
-    case 'type-ii': return <svg {...commonProps}><rect x="4" y="6" width="16" height="5" /><rect x="4" y="13" width="16" height="5" /><rect x="6" y="14" width="6" height="3" /></svg>;
-    case 'type-i': return <svg {...commonProps}><rect x="3" y="9" width="18" height="8" /><rect x="6" y="11" width="6" height="4" /><line x1="0" y1="9" x2="24" y2="9" /></svg>;
-    default: return null;
-  }
-};
 
 const VisualOptionGrid = <T extends string>({ title, options, selectedIds, onSelect, isMultiSelect = false }: {
   title: string;
@@ -93,9 +71,8 @@ const VisualOptionGrid = <T extends string>({ title, options, selectedIds, onSel
   </div>
 );
 
-const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateConfig, totalPrice, settings, onConfirmCupboard }) => {
+const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateConfig, totalPrice, settings, onConfirmCupboard, touchedSections, onSectionTouch }) => {
   const [activeSubPanel, setActiveSubPanel] = useState<SectionKey | null>(null);
-  const [touchedSections, setTouchedSections] = useState<Set<string>>(new Set());
   const [colorSelectionStep, setColorSelectionStep] = useState<'counter' | 'door'>('counter');
   const [equipmentStep, setEquipmentStep] = useState(0);
 
@@ -254,7 +231,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
   const handleSectionClick = (key: SectionKey) => {
     setActiveSubPanel(key);
-    setTouchedSections(prev => new Set(prev).add(key));
+    onSectionTouch(key);
   };
 
   const handleItemSelection = (
@@ -289,7 +266,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                     key={dt.id} 
                     onClick={() => {
                       if (config.doorType === 'unselected' && dt.id !== 'unselected') {
-                        setTouchedSections(prev => new Set(prev).add('type'));
+                        onSectionTouch('type');
                         setActiveSubPanel('size');
                       }
                       updateConfig('doorType', dt.id);
@@ -473,7 +450,50 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             </div>
         );
       }
-      case 'cupboard': return null;
+      case 'cupboard': return (
+        <div className="flex-grow flex flex-col h-full">
+          <div className="flex-grow overflow-y-auto p-6 space-y-4">
+            <div>
+              <label className="block text-base font-medium text-gray-700 mb-2">タイプ</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {settings.cupboardTypes.map(t => <button key={t.id} onClick={() => updateConfig('cupboardType', t.id)} className={`py-3 rounded-lg border ${config.cupboardType === t.id ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>{t.name}</button>)}
+              </div>
+            </div>
+            {config.cupboardType !== 'none' && (
+              <>
+                <div>
+                  <label className="block text-base font-medium text-gray-700 mb-2">幅</label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {cupboardWidths.map(w => <button key={w} onClick={() => updateConfig('cupboardWidth', w)} className={`py-2 rounded-lg border text-sm ${config.cupboardWidth === w ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>{w} cm</button>)}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-base font-medium text-gray-700 mb-2">奥行</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {cupboardDepths.map(d => <button key={d} onClick={() => updateConfig('cupboardDepth', d)} disabled={(config.cupboardType === 'tall' || config.cupboardType === 'mix') && d !== 45} className={`py-3 rounded-lg border ${config.cupboardDepth === d ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'} disabled:bg-gray-200 disabled:opacity-50`}>{d} cm</button>)}
+                  </div>
+                </div>
+                {config.cupboardType === 'mix' && (
+                  <div>
+                    <label className="block text-base font-medium text-gray-700 mb-2">配置</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button onClick={() => updateConfig('cupboardLayout', 'left')} className={`py-3 rounded-lg border ${config.cupboardLayout === 'left' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>左 (L)</button>
+                      <button onClick={() => updateConfig('cupboardLayout', 'right')} className={`py-3 rounded-lg border ${config.cupboardLayout === 'right' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>右 (R)</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex-shrink-0 p-6 border-t bg-gray-50">
+            <div className="flex justify-end items-baseline gap-3 mb-4">
+              <p className="text-sm text-gray-600">カップボード価格</p>
+              <p className="text-4xl font-bold">{cupboardSelectionPrice.toLocaleString()}円</p>
+            </div>
+            <button onClick={handleConfirmCupboard} className="w-full bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all">決定</button>
+          </div>
+        </div>
+      );
       case 'other': return <div className="p-6 space-y-6">
           <VisualOptionGrid 
               title="キッチンオプション"
