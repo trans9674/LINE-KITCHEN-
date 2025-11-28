@@ -162,7 +162,7 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
             const doorColor = findOpt(settings.colors, door.config.color);
             const counterColor = findOpt(settings.colors, door.config.counterColor);
 
-            // 3. Equipment
+            // 3. Equipment & Options
             const equipments = [];
             // Faucet
             const faucet = findOpt(settings.faucets, door.config.faucet);
@@ -183,6 +183,35 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
             const hood = findOpt(settings.rangeHoods, door.config.rangeHood);
             if (hood && hood.id !== 'no-hood') equipments.push({ label: 'レンジフード', ...hood });
 
+            // Kitchen Options
+            if (door.config.hasInnerDrawer) {
+                const opt = findOpt(settings.kitchenOptions, 'inner-drawer');
+                if (opt) equipments.push({ label: 'キッチンOP', ...opt });
+            }
+            if (door.config.hasCrossGallery) {
+                const opt = findOpt(settings.kitchenOptions, 'cross-gallery');
+                if (opt) equipments.push({ label: 'キッチンOP', ...opt });
+            }
+            if (door.config.hasNonSlipMat) {
+                const id = door.config.hasInnerDrawer ? 'non-slip-mat-inner' : 'non-slip-mat';
+                const opt = findOpt(settings.kitchenOptions, id);
+                if (opt) equipments.push({ label: 'キッチンOP', ...opt });
+            }
+
+            // Sink Accessories
+            (door.config.sinkAccessories || []).forEach(accId => {
+                const acc = findOpt(settings.sinkAccessories, accId);
+                if (acc && acc.id !== 'none') equipments.push({ label: 'シンクAcc', ...acc });
+            });
+
+            // Kitchen Panel
+            const panel = findOpt(settings.kitchenPanels, door.config.kitchenPanel);
+            if (panel && panel.id !== 'none') equipments.push({ label: 'パネル', ...panel });
+
+            // Range Hood Option
+            const hoodOpt = findOpt(settings.rangeHoodOptions, door.config.rangeHoodOption);
+            if (hoodOpt && hoodOpt.id !== 'none') equipments.push({ label: 'フードOP', ...hoodOpt });
+
             // 4. Cupboard
             let cupboardText = 'なし';
             if (door.config.confirmedCupboard) {
@@ -197,27 +226,25 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                  cupboardText = `${cType ? cType.name : door.config.cupboardType} (未確定)`;
             }
 
-            // 5. Options
-            // Kitchen Options
+            // 5. Options (Summary for left side)
+            // Kitchen Options Summary
             const activeKitchenOpts = [];
             if (door.config.hasInnerDrawer) activeKitchenOpts.push('内引出し');
             if (door.config.hasCrossGallery) activeKitchenOpts.push('クロスギャラリー');
             if (door.config.hasNonSlipMat) activeKitchenOpts.push('ノンスリップマット');
             const kitchenOptText = activeKitchenOpts.length > 0 ? activeKitchenOpts.join(', ') : 'なし';
 
-            // Sink Accessories
+            // Sink Accessories Summary
             const activeSinkAccs = (door.config.sinkAccessories || []).map(id => {
                 const acc = findOpt(settings.sinkAccessories, id);
                 return acc ? acc.name : null;
             }).filter(Boolean);
             const sinkAccText = activeSinkAccs.length > 0 ? activeSinkAccs.join(', ') : 'なし';
 
-            // Panel
-            const panel = findOpt(settings.kitchenPanels, door.config.kitchenPanel);
+            // Panel Summary
             const panelText = (panel && panel.id !== 'none') ? panel.name : 'なし';
 
-            // Hood Option
-            const hoodOpt = findOpt(settings.rangeHoodOptions, door.config.rangeHoodOption);
+            // Hood Option Summary
             const hoodOptText = (hoodOpt && hoodOpt.id !== 'none') ? hoodOpt.name : 'なし';
 
             const useScreenshot = (index === 0 && screenshotUrl);
@@ -288,7 +315,7 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                            </div>
                        </div>
 
-                       {/* Options List */}
+                       {/* Options List Summary */}
                        <div className="border-t border-gray-200 pt-4 text-xs space-y-2">
                           <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
                               <span className="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded text-center">カップボード</span>
@@ -313,9 +340,9 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                        </div>
                    </div>
 
-                   {/* RIGHT COLUMN: Equipment (50%) */}
+                   {/* RIGHT COLUMN: Equipment & Options (50%) */}
                    <div className="w-1/2 flex flex-col">
-                        <h3 className="font-bold text-gray-500 mb-3 border-b border-gray-200 pb-1">設備機器</h3>
+                        <h3 className="font-bold text-gray-500 mb-3 border-b border-gray-200 pb-1">設備機器・オプション</h3>
                         <div className="grid grid-cols-2 gap-4">
                             {equipments.map((eq, i) => (
                                 <div key={i} className="flex flex-row gap-3 items-center border border-gray-200 rounded p-2 bg-white shadow-sm">
@@ -329,6 +356,9 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                                     <div className="flex-1 min-w-0">
                                         <span className="block text-[10px] font-bold text-gray-500 mb-0.5">{eq.label}</span>
                                         <span className="block text-xs font-bold leading-tight break-all">{eq.name}</span>
+                                        {(eq.id === 'none' && eq.label === '加熱機器') && (
+                                            <span className="block text-[9px] text-red-500 font-bold mt-1">※グリルレスの機器は使用できません。必ずグリル付きの製品を設置下さい。</span>
+                                        )}
                                     </div>
                                 </div>
                             ))}

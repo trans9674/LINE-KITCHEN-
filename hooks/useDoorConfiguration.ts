@@ -1,3 +1,4 @@
+
 import { useState, useMemo, useCallback } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, FaucetId, StorageOptionId, KitchenOptionId, SinkAccessoryId, KitchenPanelId } from '../types';
 import { INITIAL_CONFIG, CUPBOARD_PRICES, CUPBOARD_COUNTER_PRICES, CUPBOARD_DOOR_PRICES, COLORS, TYPE_II_ISLAND_UPCHARGE } from '../constants';
@@ -94,6 +95,11 @@ export const useDoorConfiguration = (settings: AppSettings) => {
         if (isNewTypeI || isNewTypeIIFamily) {
           newConfig.divider = 'none';
         }
+
+        // Reset hanging cabinet if not type-i
+        if (!isNewTypeI) {
+          newConfig.hasHangingCabinet = false;
+        }
       }
       
       // If backStyle is changed to 'storage', update storageOption to dining-storage-plan
@@ -138,6 +144,11 @@ export const useDoorConfiguration = (settings: AppSettings) => {
         total += TYPE_II_ISLAND_UPCHARGE;
     }
     
+    // Hanging cabinet price for Type I
+    if (config.doorType === 'type-i' && config.hasHangingCabinet) {
+        total += 105000;
+    }
+
     // Counter color price
     const counterColorOption = settings.colors.find(c => c.id === config.counterColor);
     if (counterColorOption) total += counterColorOption.price;

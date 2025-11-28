@@ -143,7 +143,8 @@ export const DISHWASHERS: DoorOption<DishwasherId>[] = [
     {
       "id": "none",
       "name": "食洗機なし",
-      "price": 0
+      "price": 0,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/photo/nasi.jpg"
     }
 ];
 
@@ -363,11 +364,6 @@ export const FAUCETS: DoorOption<FaucetId>[] = [
       "swatchUrl": " http://25663cc9bda9549d.main.jp/aistudio/linekitchen/photo/TAKAGILC122MN-3NB801.jpg"
     },
     {
-      "id": "other",
-      "name": "その他水栓",
-      "price": 0
-    },
-    {
       "id": "none",
       "name": "水栓金具なし",
       "price": 0
@@ -441,6 +437,7 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   hasInnerDrawer: false,
   hasCrossGallery: false,
   hasNonSlipMat: false,
+  hasHangingCabinet: false, // Added initial value
   dishwasher: 'rinnai-405am',
   gasStove: 'paloma-pkd-509ws',
   ihHeater: null,

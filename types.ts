@@ -45,7 +45,7 @@ export type GasStoveId = 'paloma-pkd-509ws' | 'paloma-brillio-pd-743ws' | 'palom
 export type IhHeaterId = 'none' | 'mitsubishi-cs-g318m' | 'panasonic-ys-ch-trs6c' | 'panasonic-ys-ch-trs7c' | 'panasonic-ch-mrs7a1' | 'hitachi-ht-n150ktwf' | 'mitsubishi-cs-t322bfr';
 export type RangeHoodId = 'none' | 'shvrl-3a-901-si' | 'shvrl-3a-901-bk' | 'shvrl-3a-901-w' | 'fujioh-shvrl-3a-901v-si' | 'fujioh-shvrl-3a-901v-bk' | 'fujioh-shvrl-3a-901v-w' | 'no-hood';
 export type RangeHoodOptionId = 'none' | 'damper-100v' | 'damper-shutter-100v' | 'height-change-700' | 'height-change-850' | 'top-plate';
-export type FaucetId = 'none' | 'grohe-jp205702' | 'sanei-k87122ejv' | 'hansgrohe-74800674' | 'sanei-k8731e1jv' | 'sanei-k8781jv-djp' | 'grohe-3028020' | 'grohe-32321gn2j' | 'sanei-ek8700e' | 'takagi-ls106mn' | 'takagi-ls106bn' | 'takagi-jy396mn' | 'takagi-lc122mn' | 'other';
+export type FaucetId = 'none' | 'grohe-jp205702' | 'sanei-k87122ejv' | 'hansgrohe-74800674' | 'sanei-k8731e1jv' | 'sanei-k8781jv-djp' | 'grohe-3028020' | 'grohe-32321gn2j' | 'sanei-ek8700e' | 'takagi-ls106mn' | 'takagi-ls106bn' | 'takagi-jy396mn' | 'takagi-lc122mn';
 export type SinkAccessoryId = 'none' | 'basket-s' | 'detergent-box' | 'cutlery-box' | 'plate-no-hole' | 'plate-hole' | 'basket-l' | 'steers' | 'cutting-board' | 'palette' | 'under-plate';
 export type KitchenPanelId = 'none' | 'aica-fkm6000zgn-1' | 'aica-fkm6000zgn-2' | 'aica-fkm6000zgn-3' | 'aica-fas809zmn-1' | 'aica-fas809zmn-2' | 'aica-fas809zmn-3';
 export type CupboardStorageTypeId = 'opening' | 'drawer' | 'opening-open' | 'drawer-open' | 'opening-appliance' | 'drawer-appliance';
@@ -104,6 +104,7 @@ export interface DoorConfiguration {
   hasInnerDrawer: boolean;
   hasCrossGallery: boolean;
   hasNonSlipMat: boolean;
+  hasHangingCabinet: boolean; // Added for Type I hanging cabinet
   dishwasher: DishwasherId;
   gasStove: GasStoveId | null;
   ihHeater: IhHeaterId | null;

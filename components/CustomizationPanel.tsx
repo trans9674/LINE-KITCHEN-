@@ -42,28 +42,37 @@ const ColorSwatch: React.FC<{ color: ColorOption; active: boolean; onClick: () =
   </button>
 );
 
-const VisualOptionGrid = <T extends string>({ title, options, selectedIds, onSelect, isMultiSelect = false }: {
+const VisualOptionGrid = <T extends string>({ title, options, selectedIds, onSelect, isMultiSelect = false, disabledIds = [] }: {
   title: string;
   options: (DoorOption<T> & { configKey?: keyof DoorConfiguration; note?: string })[];
   selectedIds: T[];
   onSelect: (option: DoorOption<T> & { configKey?: keyof DoorConfiguration; note?: string }) => void;
   isMultiSelect?: boolean;
+  disabledIds?: T[];
 }) => (
   <div>
     <label className="block text-base font-medium text-gray-700 mb-3">{title}</label>
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {options.map(opt => {
         const isSelected = selectedIds.includes(opt.id);
+        const isDisabled = disabledIds.includes(opt.id);
         const proxiedUrl = getProxiedImageUrl(opt.swatchUrl);
         return (
-          <button key={opt.id} onClick={() => onSelect(opt)} className={`relative text-left p-2 rounded-lg border-2 transition-all duration-200 ${isSelected ? 'border-[#8b8070] bg-[#f5f2eb] shadow-md' : 'border-gray-200 bg-white hover:border-gray-400'}`}>
+          <button 
+            key={opt.id} 
+            onClick={() => onSelect(opt)} 
+            disabled={isDisabled}
+            className={`relative text-left p-2 rounded-lg border-2 transition-all duration-200 ${isSelected ? 'border-[#8b8070] bg-[#f5f2eb] shadow-md' : 'border-gray-200 bg-white hover:border-gray-400'} ${isDisabled ? 'opacity-40 cursor-not-allowed bg-gray-100' : ''}`}
+          >
             {opt.price === 0 && opt.id !== 'none' && (<span className="absolute top-1.5 left-1.5 bg-[#5d5448] text-white text-[9px] font-bold px-2 py-0.5 rounded-full z-10">標準</span>)}
             <div className="w-full aspect-video bg-gray-100 rounded-md overflow-hidden mb-2 relative">
               {proxiedUrl ? (<img src={getProxiedImageUrl(opt.swatchUrl)} alt={opt.name} className="w-full h-full object-contain" />) : (<div className="w-full h-full flex items-center justify-center text-gray-400 text-[10px] italic">画像なし</div>)}
             </div>
             <p className="text-xs font-bold text-gray-800 leading-tight line-clamp-2" style={{minHeight: '2.5em'}}>{opt.name}</p>
             {opt.note && <p className="text-[10px] text-red-500 font-medium mt-1">{opt.note}</p>}
-            <p className="text-sm font-semibold text-gray-700 mt-1">+{opt.price.toLocaleString()}円</p>
+            <p className="text-sm font-semibold text-gray-700 mt-1">
+                {opt.price > 0 ? '+' : ''}{opt.price.toLocaleString()}円
+            </p>
             {isSelected && (<div className="absolute top-1.5 right-1.5 bg-[#8b8070] text-white rounded-full w-5 h-5 flex items-center justify-center shadow"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg></div>)}
           </button>
         );
@@ -88,10 +97,18 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     onConfirm: (() => void) | null;
   }>({ isOpen: false, onConfirm: null });
 
+  const [kitchenPanelConfirmation, setKitchenPanelConfirmation] = useState<{
+      isOpen: boolean;
+      message: string;
+      onConfirm: (() => void) | null;
+  }>({ isOpen: false, message: '', onConfirm: null });
+
   const [equipmentConfirmationOpen, setEquipmentConfirmationOpen] = useState(false);
   const [cupboardDetailConfirmationOpen, setCupboardDetailConfirmationOpen] = useState(false);
   const [colorConfirmationOpen, setColorConfirmationOpen] = useState(false);
   const [otherConfirmationOpen, setOtherConfirmationOpen] = useState(false);
+  const [heatingWarningOpen, setHeatingWarningOpen] = useState(false);
+  const [dishwasherWarningOpen, setDishwasherWarningOpen] = useState(false);
 
   const subPanelRef = useRef<HTMLDivElement>(null);
   const cupboardPanelRef = useRef<HTMLDivElement>(null);
@@ -205,6 +222,18 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
       }
       return items;
   }, [config, settings]);
+
+  const disabledPanelIds = useMemo(() => {
+      if (config.doorType === 'island') {
+          return settings.kitchenPanels.filter(p => p.id !== 'none').map(p => p.id);
+      }
+      if (config.doorType === 'peninsula') {
+          // Allow 'none', 'aica-fkm6000zgn-1' (matte white 1), 'aica-fas809zmn-1' (metallic silver 1)
+          const allowedIds = ['none', 'aica-fkm6000zgn-1', 'aica-fas809zmn-1'];
+          return settings.kitchenPanels.filter(p => !allowedIds.includes(p.id)).map(p => p.id);
+      }
+      return [];
+  }, [config.doorType, settings.kitchenPanels]);
 
   const handleSinkAccessoryToggle = (id: string) => {
     const accessoryId = id as SinkAccessoryId;
@@ -327,6 +356,10 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     }
   };
 
+  const isColorNext = activeSubPanel === 'color' && colorSelectionStep === 'counter';
+  const isEquipmentNext = activeSubPanel === 'equipment' && equipmentStep < 3;
+  const isNextButton = isColorNext || isEquipmentNext;
+
   const renderSubPanelContent = () => {
     switch(activeSubPanel) {
       case 'type': {
@@ -389,6 +422,16 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             
             {showDividerOption && <div><label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">キッチンディバイダー</label><div className="grid grid-cols-2 gap-3"><button onClick={() => updateConfig('divider', 'none')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.divider === 'none' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>なし</button><button onClick={() => updateConfig('divider', 'glass-70')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.divider === 'glass-70' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>あり</button></div></div>}
             
+            {isTypeI && (
+                <div>
+                    <label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">吊戸棚</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => updateConfig('hasHangingCabinet', false)} className={`py-3 text-sm lg:text-base rounded-lg border ${!config.hasHangingCabinet ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>なし</button>
+                        <button onClick={() => updateConfig('hasHangingCabinet', true)} className={`py-3 text-sm lg:text-base rounded-lg border ${config.hasHangingCabinet ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>あり (+105,000円)</button>
+                    </div>
+                </div>
+            )}
+            
             <div><label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">シンク下</label><div className="grid grid-cols-2 gap-3"><button onClick={() => updateConfig('sinkBaseType', 'drawers')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.sinkBaseType === 'drawers' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>引き出し</button><button onClick={() => updateConfig('sinkBaseType', 'open')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.sinkBaseType === 'open' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>オープン</button></div></div>
         </div>
       );
@@ -444,20 +487,32 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                 if (config.gasStove === opt.id) {
                     setEquipmentStep(1);
                 } else {
-                    handleItemSelection(opt, () => {
+                    if (opt.id === 'none') {
                         updateConfig('gasStove', opt.id as GasStoveId);
+                        setHeatingWarningOpen(true);
                         setEquipmentStep(1);
-                    });
+                    } else {
+                        handleItemSelection(opt, () => {
+                            updateConfig('gasStove', opt.id as GasStoveId);
+                            setEquipmentStep(1);
+                        });
+                    }
                 }
             }} />
             <VisualOptionGrid title="IHヒーター" options={settings.ihHeaters} selectedIds={[config.ihHeater]} onSelect={(opt) => {
                 if (config.ihHeater === opt.id) {
                     setEquipmentStep(1);
                 } else {
-                    handleItemSelection(opt, () => {
+                    if (opt.id === 'none') {
                         updateConfig('ihHeater', opt.id as IhHeaterId);
+                        setHeatingWarningOpen(true);
                         setEquipmentStep(1);
-                    });
+                    } else {
+                        handleItemSelection(opt, () => {
+                            updateConfig('ihHeater', opt.id as IhHeaterId);
+                            setEquipmentStep(1);
+                        });
+                    }
                 }
             }} />
           </div>,
@@ -465,10 +520,16 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                 if (config.dishwasher === opt.id) {
                     setEquipmentStep(2);
                 } else {
-                    handleItemSelection(opt, () => {
+                    if (opt.id === 'none') {
                         updateConfig('dishwasher', opt.id as DishwasherId);
+                        setDishwasherWarningOpen(true);
                         setEquipmentStep(2);
-                    });
+                    } else {
+                        handleItemSelection(opt, () => {
+                            updateConfig('dishwasher', opt.id as DishwasherId);
+                            setEquipmentStep(2);
+                        });
+                    }
                 }
           }} /></div>,
           <div key={2} className="p-6 space-y-6"><VisualOptionGrid title="水栓金具" options={settings.faucets} selectedIds={[config.faucet]} onSelect={(opt) => {
@@ -592,9 +653,36 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
               title="キッチンパネル"
               options={settings.kitchenPanels}
               selectedIds={[config.kitchenPanel]}
+              disabledIds={disabledPanelIds}
               onSelect={(opt) => {
-                if (config.kitchenPanel === opt.id) {
+                if (opt.id === 'none') {
                     updateConfig('kitchenPanel', 'none');
+                    return;
+                }
+                
+                let message = '';
+                const isPeninsula = config.doorType === 'peninsula';
+                const isTypeIorII = config.doorType === 'type-i' || config.doorType === 'type-ii' || config.doorType.startsWith('type-ii-stove');
+
+                if (isPeninsula) {
+                    message = '【パネルの他にジョイナー2本、コーキング1本が含まれます。】';
+                } else if (isTypeIorII) {
+                    if (opt.id.endsWith('-3')) {
+                        message = '【パネルの他にジョイナー2本、コーキング2本が含まれます。】';
+                    } else {
+                        message = '【パネルの他にジョイナー2本、コーキング1本が含まれます。】';
+                    }
+                }
+
+                if (message) {
+                    setKitchenPanelConfirmation({
+                        isOpen: true,
+                        message,
+                        onConfirm: () => {
+                            updateConfig('kitchenPanel', opt.id as KitchenPanelId);
+                            setKitchenPanelConfirmation({ isOpen: false, message: '', onConfirm: null });
+                        }
+                    });
                 } else {
                     handleItemSelection(opt, () => updateConfig('kitchenPanel', opt.id as KitchenPanelId));
                 }
@@ -681,7 +769,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                           onClick={handleHeaderComplete}
                           className="bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-2 px-5 rounded-lg shadow-md transition-all text-sm"
                         >
-                          {(activeSubPanel === 'equipment' && equipmentStep < 3) || (activeSubPanel === 'color' && colorSelectionStep === 'counter') ? '次へ' : '決定'}
+                          {isNextButton ? '次へ' : '決定'}
                         </button>
                     </div>
                     
@@ -758,7 +846,9 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                   )}
                 </div>
                 <p className="text-xs font-bold text-gray-800 text-center">{itemConfirmation.item.name}</p>
-                <p className="text-sm font-semibold text-gray-700 text-center mt-1">+{itemConfirmation.item.price.toLocaleString()}円</p>
+                <p className="text-sm font-semibold text-gray-700 text-center mt-1">
+                    {itemConfirmation.item.price > 0 ? '+' : ''}{itemConfirmation.item.price.toLocaleString()}円
+                </p>
               </div>
               <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl">
                 <button
@@ -995,6 +1085,92 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                             className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
                         >
                             決定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Heating Warning Modal */}
+        {heatingWarningOpen && (
+            <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setHeatingWarningOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-[90%] max-w-sm m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                            <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">ご注意ください</h3>
+                        <p className="text-sm text-gray-500">
+                            グリルレスの機器は使用できません。<br/>必ずグリル付きの製品を設置下さい。
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-center rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setHeatingWarningOpen(false)}
+                            className="px-6 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            確認しました
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Dishwasher Warning Modal */}
+        {dishwasherWarningOpen && (
+            <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setDishwasherWarningOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-[90%] max-w-sm m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+                            <svg className="h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">確認</h3>
+                        <p className="text-sm text-gray-500">
+                            収納スペースとなります。
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-center rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setDishwasherWarningOpen(false)}
+                            className="px-6 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            確認しました
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Kitchen Panel Confirmation Modal */}
+        {kitchenPanelConfirmation.isOpen && (
+            <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setKitchenPanelConfirmation({ ...kitchenPanelConfirmation, isOpen: false })}>
+                <div className="bg-white rounded-xl shadow-lg w-[90%] max-w-sm m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 text-center">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">確認</h3>
+                        <p className="text-sm text-gray-600">
+                            {kitchenPanelConfirmation.message}
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setKitchenPanelConfirmation({ ...kitchenPanelConfirmation, isOpen: false })}
+                            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors font-bold text-sm"
+                        >
+                            戻る
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => kitchenPanelConfirmation.onConfirm?.()}
+                            className="px-6 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors font-bold text-sm shadow-md"
+                        >
+                            OK
                         </button>
                     </div>
                 </div>
