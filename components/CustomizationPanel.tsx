@@ -422,16 +422,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             
             {showDividerOption && <div><label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">キッチンディバイダー</label><div className="grid grid-cols-2 gap-3"><button onClick={() => updateConfig('divider', 'none')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.divider === 'none' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>なし</button><button onClick={() => updateConfig('divider', 'glass-70')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.divider === 'glass-70' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>あり</button></div></div>}
             
-            {isTypeI && (
-                <div>
-                    <label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">吊戸棚</label>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => updateConfig('hasHangingCabinet', false)} className={`py-3 text-sm lg:text-base rounded-lg border ${!config.hasHangingCabinet ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>なし</button>
-                        <button onClick={() => updateConfig('hasHangingCabinet', true)} className={`py-3 text-sm lg:text-base rounded-lg border ${config.hasHangingCabinet ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>あり (+105,000円)</button>
-                    </div>
-                </div>
-            )}
-            
             <div><label className="block text-base lg:text-lg font-medium text-gray-700 mb-2">シンク下</label><div className="grid grid-cols-2 gap-3"><button onClick={() => updateConfig('sinkBaseType', 'drawers')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.sinkBaseType === 'drawers' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>引き出し</button><button onClick={() => updateConfig('sinkBaseType', 'open')} className={`py-3 text-sm lg:text-base rounded-lg border ${config.sinkBaseType === 'open' ? 'bg-[#8b8070] text-white shadow-md' : 'bg-white hover:bg-gray-100'}`}>オープン</button></div></div>
         </div>
       );

@@ -104,7 +104,6 @@ export interface DoorConfiguration {
   hasInnerDrawer: boolean;
   hasCrossGallery: boolean;
   hasNonSlipMat: boolean;
-  hasHangingCabinet: boolean; // Added for Type I hanging cabinet
   dishwasher: DishwasherId;
   gasStove: GasStoveId | null;
   ihHeater: IhHeaterId | null;

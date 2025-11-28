@@ -437,7 +437,6 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   hasInnerDrawer: false,
   hasCrossGallery: false,
   hasNonSlipMat: false,
-  hasHangingCabinet: false, // Added initial value
   dishwasher: 'rinnai-405am',
   gasStove: 'paloma-pkd-509ws',
   ihHeater: null,

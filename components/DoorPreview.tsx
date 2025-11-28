@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -113,8 +114,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
   }));
 
   const visualConfigStr = useMemo(() => {
-    const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard, hasHangingCabinet } = config;
-    return JSON.stringify({ doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard, hasHangingCabinet });
+    const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard } = config;
+    return JSON.stringify({ doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard });
   }, [config]);
 
   const getOptionName = <T extends string>(options: DoorOption<T>[], id: T): string => {
@@ -1257,11 +1258,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  blockGroup.add(dividerGroup);
               }
           }
-          
-          const counterY = floatH + h + revealH + topH;
-          const hoodBottomGap = 0.80;
-          const hoodBottomY = counterY + hoodBottomGap;
-
           if (hasHood) {
               const hoodGroup = new THREE.Group();
               if (hoodType === 'side') {
@@ -1288,6 +1284,10 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                   const upperH = totalH - lowerH;
                   const lowerD = 0.60;
                   const upperD = 0.375;
+                  const hoodBottomGap = 0.80;
+                  
+                  const counterY = floatH + h + revealH + topH;
+                  const hoodBottomY = counterY + hoodBottomGap;
                   
                   const backZ = -0.325; 
 
@@ -1308,51 +1308,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
               blockGroup.add(hoodGroup);
           }
-          
-          if (isTypeI && currentConfig.hasHangingCabinet) {
-              const hoodW = 0.90;
-              const hoodCenter = stoveZoneX + stoveInternalXOffset;
-              const hoodLeft = hoodCenter - hoodW/2;
-              const hoodRight = hoodCenter + hoodW/2;
-              
-              const cabinetH = 0.70; // Standard height
-              // Align with hood
-              const cabinetY = hoodBottomY + cabinetH / 2;
-              const cabinetD = 0.375;
-              const cabinetZ = -0.325 + cabinetD/2; // backZ is -0.325
-              
-              const leftW = hoodLeft - (-w/2 + (hasWaterfall? panelThick:0));
-              if (leftW > 0.1) {
-                   // Split into doors if wide enough
-                   const numDoors = Math.max(1, Math.round(leftW / 0.6));
-                   const doorW = (leftW / numDoors);
-                   const gap = 0.002;
-                   
-                   for(let i=0; i<numDoors; i++) {
-                       const c = createCabinetMesh(doorW - gap, cabinetH, cabinetD, materials.cabinet);
-                       const centerX = (-w/2 + (hasWaterfall? panelThick:0)) + (doorW*i) + doorW/2;
-                       c.position.set( centerX, cabinetY, cabinetZ);
-                       c.castShadow = true; c.receiveShadow = true;
-                       blockGroup.add(c);
-                   }
-              }
-              
-              const rightW = (w/2 - (hasRightPanel? panelThick:0)) - hoodRight;
-              if (rightW > 0.1) {
-                   const numDoors = Math.max(1, Math.round(rightW / 0.6));
-                   const doorW = (rightW / numDoors);
-                   const gap = 0.002;
-                   
-                   for(let i=0; i<numDoors; i++) {
-                       const c = createCabinetMesh(doorW - gap, cabinetH, cabinetD, materials.cabinet);
-                       const centerX = hoodRight + (doorW*i) + doorW/2;
-                       c.position.set( centerX, cabinetY, cabinetZ);
-                       c.castShadow = true; c.receiveShadow = true;
-                       blockGroup.add(c);
-                   }
-              }
-          }
-
           const addVerticalFiller = (x: number) => {
               if (isIslandStyle) return;
               const fillerD = bodyDepth - 0.05; 
@@ -1670,187 +1625,757 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
             const seatGeo = new THREE.ExtrudeGeometry(seatShape, { depth: 0.03, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01 });
             seatGeo.rotateX(Math.PI/2);
             const seat = new THREE.Mesh(seatGeo, seatMat);
-            seat.position.set(0, seatH, 0); // Position seat
+            seat.position.set(0, seatH - 0.01, 0);
             chairGroup.add(seat);
+        
+            // --- Top Rail (Corrected) ---
+            const trCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.25, armH, 0.20),      // Connect to Right Front Leg
+                new THREE.Vector3(-0.20, totalH - 0.02, -0.20),  // Connect to Right Back Leg
+                new THREE.Vector3(0, totalH, -0.22),            // Back Center
+                new THREE.Vector3(0.20, totalH - 0.02, -0.20),   // Connect to Left Back Leg
+                new THREE.Vector3(0.25, armH, 0.20)       // Connect to Left Front Leg
+            ]);
+            const topRail = new THREE.Mesh(new THREE.TubeGeometry(trCurve, 32, 0.018, 16, false), woodMat);
+            chairGroup.add(topRail);
 
-            return chairGroup;
+            // --- Y Splat ---
+            const yShape = new THREE.Shape();
+            const yW_bot = 0.04; 
+            const yW_top = 0.26;
+            const yH = totalH - (seatH - 0.02) + 0.03; // Adjusted height
+            
+            yShape.moveTo(-yW_bot/2, 0);
+            yShape.lineTo(yW_bot/2, 0);
+            yShape.bezierCurveTo(yW_bot, yH*0.4, yW_top/2, yH*0.8, yW_top/2, yH);
+            yShape.lineTo(yW_top/2 - 0.02, yH);
+            yShape.bezierCurveTo(yW_top/4, yH*0.7, 0, yH*0.5, 0, yH*0.4);
+            yShape.bezierCurveTo(0, yH*0.5, -yW_top/4, yH*0.7, -yW_top/2 + 0.02, yH);
+            yShape.lineTo(-yW_top/2, yH);
+            yShape.bezierCurveTo(-yW_top/2, yH*0.8, -yW_bot, yH*0.4, -yW_bot/2, 0);
+        
+            const yGeo = new THREE.ExtrudeGeometry(yShape, { depth: 0.015, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
+            const yMesh = new THREE.Mesh(yGeo, woodMat);
+            
+            yMesh.rotation.x = 0.28; 
+            // Position adjusted to sit correctly on back rail and connect to top rail
+            yMesh.position.set(0, seatH - 0.02, -0.12);
+        
+            chairGroup.add(yMesh);
+        
+            group.add(chairGroup);
        };
        
-       // Add 4 chairs
-       const c1 = createYChair(new THREE.Vector3(0.6, 0, 0.45), -Math.PI / 2); group.add(c1);
-       const c2 = createYChair(new THREE.Vector3(-0.6, 0, 0.45), Math.PI / 2); group.add(c2);
-       const c3 = createYChair(new THREE.Vector3(0.6, 0, -0.45), -Math.PI / 2); group.add(c3);
-       const c4 = createYChair(new THREE.Vector3(-0.6, 0, -0.45), Math.PI / 2); group.add(c4);
+       const chairOffsetZ = tableD/2 + 0.3;
+       const chairOffsetX = tableW/4;
+
+       createYChair(new THREE.Vector3(chairOffsetX, 0, chairOffsetZ), Math.PI);
+       createYChair(new THREE.Vector3(-chairOffsetX, 0, chairOffsetZ), Math.PI);
+       createYChair(new THREE.Vector3(chairOffsetX, 0, -chairOffsetZ), 0);
+       createYChair(new THREE.Vector3(-chairOffsetX, 0, -chairOffsetZ), 0);
+       
+       const lightGroup = new THREE.Group();
+       lightGroup.position.y = tableH + 0.8;
+
+       const cordGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.8, 8);
+       const cord = new THREE.Mesh(cordGeo, new THREE.MeshStandardMaterial({color: 0x222222}));
+       cord.position.y = 0.4;
+       lightGroup.add(cord);
+       
+       const fixtureGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.15, 32);
+       const fixture = new THREE.Mesh(fixtureGeo, baseMaterials.pendantLight);
+       lightGroup.add(fixture);
+       
+       group.add(lightGroup);
        
        return group;
   };
 
-  useEffect(() => {
-     if (!mountRef.current) return;
-     
-     const width = mountRef.current.clientWidth;
-     const height = mountRef.current.clientHeight;
-     
-     const scene = new THREE.Scene();
-     sceneRef.current = scene;
-     scene.background = new THREE.Color(0xf0f0f0);
-     
-     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-     camera.position.set(0, 1.6, 3.5);
-     cameraRef.current = camera;
-     
-     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-     renderer.setSize(width, height);
-     renderer.shadowMap.enabled = true;
-     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-     renderer.toneMappingExposure = 1.0;
-     mountRef.current.appendChild(renderer.domElement);
-     rendererRef.current = renderer;
-     
-     const controls = new OrbitControls(camera, renderer.domElement);
-     controls.target.set(0, 0.85, 0);
-     controls.update();
-     controlsRef.current = controls;
-     
-     const pmremGenerator = new THREE.PMREMGenerator(renderer);
-     scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer)).texture;
-     
-     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-     scene.add(ambientLight);
-     
-     const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-     dirLight.position.set(5, 10, 7);
-     dirLight.castShadow = true;
-     dirLight.shadow.mapSize.width = 2048;
-     dirLight.shadow.mapSize.height = 2048;
-     dirLight.shadow.bias = -0.0001;
-     scene.add(dirLight);
-
-     // Floor
-     const floorGeo = new THREE.PlaneGeometry(10, 10);
-     const floorMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-     const floor = new THREE.Mesh(floorGeo, floorMat);
-     floor.rotation.x = -Math.PI / 2;
-     floor.receiveShadow = true;
-     floorMeshRef.current = floor;
-     scene.add(floor);
-     
-     // Main Group
-     const mainGroup = new THREE.Group();
-     groupRef.current = mainGroup;
-     scene.add(mainGroup);
-
-     const animate = () => {
-         animationRef.current = requestAnimationFrame(animate);
-         if (controlsRef.current) {
-            controlsRef.current.update();
-            if (isAutoRotating) {
-               controlsRef.current.autoRotate = true;
-               controlsRef.current.autoRotateSpeed = 2.0;
-            } else {
-               controlsRef.current.autoRotate = false;
-            }
-         }
-         if (rendererRef.current && sceneRef.current && cameraRef.current) {
-             rendererRef.current.render(sceneRef.current, cameraRef.current);
-         }
-     };
-     animate();
-
-     return () => {
-         if (animationRef.current) cancelAnimationFrame(animationRef.current);
-         if (rendererRef.current && mountRef.current) {
-             mountRef.current.removeChild(rendererRef.current.domElement);
-             rendererRef.current.dispose();
-         }
-     };
-  }, []);
-
-  // Main update loop
-  useEffect(() => {
-    if (!groupRef.current) return;
+  const handlePointerMove = (e: React.MouseEvent) => {
+    if (!mountRef.current || !cameraRef.current || !showPartLabels) return;
     
-    // Clear previous
-    const group = groupRef.current;
-    while(group.children.length > 0){ 
-        group.remove(group.children[0]);
+    const now = performance.now();
+    if (now - lastRaycastTimeRef.current < 50) return; // Throttle to 20fps
+    lastRaycastTimeRef.current = now;
+
+    const rect = mountRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((e.clientY - rect.top) / rect.height) * 2 - 1;
+    mouseRef.current.set(x, y);
+
+    raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+    
+    // Check sprites first
+    if (labelsGroupRef.current) {
+        const spriteIntersects = raycasterRef.current.intersectObjects(labelsGroupRef.current.children, false);
+        if (spriteIntersects.length > 0) {
+            const sprite = spriteIntersects[0].object as THREE.Sprite;
+            if (sprite.userData.targetPartIndex !== undefined) {
+                if (hoveredPartIndex !== sprite.userData.targetPartIndex) {
+                    setHoveredPartIndex(sprite.userData.targetPartIndex);
+                }
+                return;
+            }
+        }
     }
 
-    const kitchen = createKitchenGroup(config);
-    group.add(kitchen);
+    // Check meshes
+    if (groupRef.current) {
+        const meshIntersects = raycasterRef.current.intersectObjects(groupRef.current.children, true);
+        if (meshIntersects.length > 0) {
+             for (const hit of meshIntersects) {
+                 if (hit.object.userData.partIndex !== undefined) {
+                     if (hoveredPartIndex !== hit.object.userData.partIndex) {
+                        setHoveredPartIndex(hit.object.userData.partIndex);
+                     }
+                     return;
+                 }
+             }
+        }
+    }
 
-    // Apply brightness
-    kitchen.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material) {
-            // Logic for brightness (simplified)
-            // We would need original materials logic but for now let's skip complex brightness
+    if (hoveredPartIndex !== null) {
+        setHoveredPartIndex(null);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+      if (!showPartLabels) return;
+      if (hoveredPartIndex !== null) {
+          e.stopPropagation();
+          setSelectedPartIndex(hoveredPartIndex);
+          setIsAutoRotating(false);
+      } else {
+          setSelectedPartIndex(null);
+      }
+  };
+
+  useEffect(() => {
+      if (!mountRef.current) return; const mountNode = mountRef.current;
+      if (rendererRef.current) { if (mountNode.contains(rendererRef.current.domElement)) { mountNode.removeChild(rendererRef.current.domElement); } rendererRef.current.dispose(); }
+      
+      const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); sceneRef.current = scene;
+      
+      const camera = new THREE.PerspectiveCamera(45, mountNode.clientWidth / mountNode.clientHeight, 0.1, 100);
+      camera.position.set(2.0, 1.7, 2.8); cameraRef.current = camera;
+      
+      // FIX: preserveDrawingBuffer: true is required for toDataURL to work robustly without immediate re-render
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      renderer.setSize(mountNode.clientWidth, mountNode.clientHeight); renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+      renderer.toneMappingExposure = 1.0; 
+      mountNode.appendChild(renderer.domElement); rendererRef.current = renderer;
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer), 0.1).texture;
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true; controls.dampingFactor = 0.05;
+      controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+      controls.target.set(0, 0.8, 0);
+      controlsRef.current = controls;
+      
+      const transformControls = new TransformControls(camera, renderer.domElement);
+      transformControls.addEventListener('dragging-changed', (event) => {
+        if (controlsRef.current) {
+            controlsRef.current.enabled = !event.value;
+        }
+      });
+      scene.add(transformControls);
+      transformControlsRef.current = transformControls;
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.2); scene.add(hemiLight);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); 
+      dirLight.position.set(-5, 15, -5); dirLight.castShadow = true; dirLight.shadow.bias = -0.0001;
+      dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.top = 10; dirLight.shadow.camera.bottom = -10; dirLight.shadow.camera.left = -10; dirLight.shadow.camera.right = 10;
+      scene.add(dirLight);
+      const fillLight = new THREE.DirectionalLight(0xffeedd, 0.3); fillLight.position.set(5, 8, 8); scene.add(fillLight);
+      
+      const createTextSprite = (text: string, color: string) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 64; canvas.height = 64;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+              ctx.font = 'Bold 48px Arial';
+              ctx.fillStyle = color;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(text, 32, 32);
+          }
+          const texture = new THREE.CanvasTexture(canvas);
+          const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+          const sprite = new THREE.Sprite(material);
+          sprite.scale.set(0.25, 0.25, 0.25);
+          sprite.renderOrder = 999;
+          return sprite;
+      };
+
+      const axesGroup = new THREE.Group();
+      axesGroup.position.y = 0.01;
+      axesGroup.renderOrder = 999;
+      axesGroup.visible = false; 
+      
+      const axisLength = 1.125;
+      const headLength = 0.15;
+      const headWidth = 0.075;
+
+      const addAxis = (dir: THREE.Vector3, color: number, label: string, hexColor: string, labelOffset: THREE.Vector3) => {
+        const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0, 0, 0), axisLength, color, headLength, headWidth);
+        if (arrow.line) arrow.line.material.depthTest = false;
+        if (arrow.cone) arrow.cone.material.depthTest = false;
+        axesGroup.add(arrow);
+        const sprite = createTextSprite(label, hexColor);
+        sprite.position.copy(labelOffset);
+        axesGroup.add(sprite);
+      };
+
+      addAxis(new THREE.Vector3(1, 0, 0), 0xff0000, 'X', '#ff0000', new THREE.Vector3(axisLength + 0.1, 0, 0));
+      addAxis(new THREE.Vector3(-1, 0, 0), 0xff0000, '-X', '#ff0000', new THREE.Vector3(-(axisLength + 0.1), 0, 0));
+
+      addAxis(new THREE.Vector3(0, 1, 0), 0x00ff00, 'Y', '#00ff00', new THREE.Vector3(0, axisLength + 0.1, 0));
+      addAxis(new THREE.Vector3(0, -1, 0), 0x00ff00, '-Y', '#00ff00', new THREE.Vector3(0, -(axisLength + 0.1), 0));
+
+      addAxis(new THREE.Vector3(0, 0, 1), 0x0000ff, 'Z', '#0000ff', new THREE.Vector3(0, 0, axisLength + 0.1));
+      addAxis(new THREE.Vector3(0, 0, -1), 0x0000ff, '-Z', '#0000ff', new THREE.Vector3(0, 0, -(axisLength + 0.1)));
+      
+      scene.add(axesGroup);
+      axesGroupRef.current = axesGroup; 
+
+      const highlightMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshBasicMaterial({ 
+              color: 0xff0000, 
+              transparent: true, 
+              opacity: 0.4, 
+              depthTest: false,
+              depthWrite: false,
+          })
+      );
+      highlightMesh.visible = false;
+      highlightMesh.renderOrder = 9998;
+      scene.add(highlightMesh);
+      highlightMeshRef.current = highlightMesh;
+
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
+      floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+      floorMeshRef.current = floor;
+      
+      const extrasGroup = new THREE.Group(); scene.add(extrasGroup); extrasGroupRef.current = extrasGroup;
+      
+      const labelsGroup = new THREE.Group();
+      labelsGroup.position.y = 0;
+      scene.add(labelsGroup);
+      labelsGroupRef.current = labelsGroup;
+
+      const animate = () => { animationRef.current = requestAnimationFrame(animate); if (controlsRef.current) controlsRef.current.update(); renderer.render(scene, camera); };
+      animate();
+      const resizeObserver = new ResizeObserver(() => {
+          if (mountNode && camera && renderer) {
+              const width = mountNode.clientWidth; const height = mountNode.clientHeight;
+              if (width > 0 && height > 0) {
+                  const isMobile = width < 1024;
+                  if (isMobile) {
+                      controls.enableZoom = true;
+                      controls.enablePan = true;
+                      controls.minPolarAngle = 0; 
+                      controls.maxPolarAngle = Math.PI;
+                      controls.rotateSpeed = 0.5; // Lower sensitivity for touch
+                      camera.position.set(1.5, 1.4, 2.8);
+                      controls.target.set(0, 0.8, 0);
+                  } else {
+                      controls.enableZoom = true; 
+                      controls.enablePan = false; 
+                      controls.minPolarAngle = 0;
+                      controls.maxPolarAngle = Math.PI;
+                      controls.rotateSpeed = 1.0; // Default sensitivity for mouse
+                  }
+                  camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height);
+              }
+          }
+      });
+      resizeObserver.observe(mountNode);
+      
+      const fullDispose = (group: THREE.Group | null) => {
+          if (!group) return;
+          group.traverse((child) => {
+              if (child instanceof THREE.Mesh) {
+                  child.geometry?.dispose();
+                  if (Array.isArray(child.material)) {
+                      child.material.forEach(m => {
+                          if (m instanceof THREE.SpriteMaterial && m.map && m.map.image instanceof HTMLCanvasElement) {
+                              m.map.dispose();
+                          }
+                          m.dispose();
+                      });
+                  } else if (child.material) {
+                      if (child.material instanceof THREE.SpriteMaterial && child.material.map && child.material.map.image instanceof HTMLCanvasElement) {
+                          child.material.map.dispose();
+                      }
+                      child.material.dispose();
+                  }
+              } else if (child instanceof THREE.Sprite) {
+                  child.geometry?.dispose();
+                  child.material?.map?.dispose();
+                  child.material?.dispose();
+              }
+          });
+          sceneRef.current?.remove(group);
+      };
+
+      return () => {
+          resizeObserver.disconnect(); 
+          cancelAnimationFrame(animationRef.current);
+          if (controlsRef.current) controlsRef.current.dispose();
+          if (transformControlsRef.current) {
+            transformControlsRef.current.dispose();
+          }
+          
+          fullDispose(groupRef.current);
+          fullDispose(prevGroupRef.current);
+          fullDispose(extrasGroupRef.current);
+          fullDispose(labelsGroupRef.current);
+          fullDispose(axesGroupRef.current);
+          fullDispose(importedModelRef.current);
+
+          sceneRef.current?.traverse(child => {
+              if (child instanceof THREE.Light) {
+                  sceneRef.current?.remove(child);
+              }
+          });
+
+          if (sceneRef.current) {
+              sceneRef.current.environment?.dispose();
+          }
+
+          if (rendererRef.current) {
+              if (mountNode.contains(rendererRef.current.domElement)) {
+                  mountNode.removeChild(rendererRef.current.domElement);
+              }
+              rendererRef.current.dispose();
+          }
+      };
+  }, []);
+
+  useEffect(() => {
+    const transformControls = transformControlsRef.current;
+    const model = importedModelRef.current;
+    if (transformControls && showTransformControls && model) {
+      transformControls.attach(model);
+      transformControls.setMode(transformMode);
+    } else if (transformControls) {
+      transformControls.detach();
+    }
+  }, [showTransformControls, transformMode]);
+
+  useEffect(() => {
+    const model = importedModelRef.current;
+    const originalColors = originalModelColorsRef.current;
+    if (!model || !originalColors) return;
+
+    model.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            const originalColor = originalColors.get(child);
+            if (originalColor) {
+                child.material.color.copy(originalColor).multiplyScalar(modelBrightness);
+            }
         }
     });
-    
-    if (sceneOption === 'dining2') {
-        const diningSet = createModernDiningSet();
-        diningSet.position.set(0, 0, 1.8); 
-        group.add(diningSet);
-    }
-    
-    // imported model handling if needed
-    if (importedModelRef.current) {
-        group.add(importedModelRef.current);
-    }
+  }, [modelBrightness]);
 
-  }, [config, sceneOption, colors, doorTypes, importedModelRef.current]);
 
-  // Handle Resize
   useEffect(() => {
-      const handleResize = () => {
-          if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
-          const width = mountRef.current.clientWidth;
-          const height = mountRef.current.clientHeight;
-          cameraRef.current.aspect = width / height;
-          cameraRef.current.updateProjectionMatrix();
-          rendererRef.current.setSize(width, height);
-      };
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-  }, []);
+      if (!extrasGroupRef.current) return;
+      const group = extrasGroupRef.current; group.clear();
+      if (sceneOption === 'dining2') {
+          const dining = createModernDiningSet();
+          dining.position.set(0, 0.001, -2.2); 
+          dining.rotation.y = Math.PI / 2; 
+          group.add(dining);
+      }
+  }, [sceneOption, baseMaterials]);
 
-  return (
-    <div className="relative w-full h-full bg-gray-100 overflow-hidden group">
-        <div ref={mountRef} className="w-full h-full" />
-        {isLoading && <LoadingIndicator />}
+  useEffect(() => {
+    if (!highlightMeshRef.current || !groupRef.current) return;
+    
+    const targetIndex = selectedPartIndex !== null ? selectedPartIndex : hoveredPartIndex;
+
+    if (targetIndex === null) {
+        highlightMeshRef.current.visible = false;
+        return;
+    }
+
+    let targetMesh: THREE.Mesh | null = null;
+    groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.userData.partIndex === targetIndex) {
+            targetMesh = child;
+        }
+    });
+
+    if (targetMesh) {
+        const mesh = targetMesh as THREE.Mesh;
+        if (highlightMeshRef.current.geometry !== mesh.geometry) {
+            highlightMeshRef.current.geometry.dispose();
+            highlightMeshRef.current.geometry = mesh.geometry.clone();
+        }
         
-        {/* Controls Overlay */}
-        <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-lg flex flex-col gap-2 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
-            <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-gray-700">床材:</label>
-                <select value={floorOption} onChange={(e) => setFloorOption(e.target.value as any)} className="text-xs p-1 rounded border border-gray-300">
-                    <option value="none">なし</option>
-                    <option value="oak">オーク</option>
-                    <option value="tile">タイル</option>
-                    <option value="stone">ストーン</option>
-                    <option value="herringbone">ヘリンボーン</option>
-                    <option value="tile-black">タイル(黒)</option>
-                </select>
-            </div>
-            <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-gray-700">シーン:</label>
-                <select value={sceneOption} onChange={(e) => setSceneOption(e.target.value as any)} className="text-xs p-1 rounded border border-gray-300">
-                    <option value="none">なし</option>
-                    <option value="dining2">ダイニングセット</option>
-                </select>
-            </div>
-            <div className="flex items-center gap-2">
-                 <label className="flex items-center gap-1 text-xs font-bold text-gray-700 cursor-pointer">
-                     <input type="checkbox" checked={isAutoRotating} onChange={(e) => setIsAutoRotating(e.target.checked)} className="rounded text-[#8b8070] focus:ring-[#8b8070]" />
-                     自動回転
-                 </label>
-            </div>
-            <div className="flex items-center gap-2">
-                 <label className="text-xs font-bold text-gray-700">GLB読込:</label>
-                 <input type="file" accept=".glb" onChange={handleFileImport} ref={fileInputRef} className="text-xs w-32" />
-            </div>
-        </div>
+        mesh.updateMatrixWorld();
+        highlightMeshRef.current.matrix.copy(mesh.matrixWorld);
+        highlightMeshRef.current.matrixAutoUpdate = false;
+        
+        highlightMeshRef.current.visible = true;
+        
+        const mat = highlightMeshRef.current.material as THREE.MeshBasicMaterial;
+        if (selectedPartIndex !== null) {
+            mat.color.set(0x00ff00); 
+            mat.opacity = 0.5;
+        } else {
+            mat.color.set(0xff0000); 
+            mat.opacity = 0.3;
+        }
+    } else {
+        highlightMeshRef.current.visible = false;
+    }
+
+  }, [hoveredPartIndex, selectedPartIndex, config]); 
+
+
+  useEffect(() => {
+      if (!groupRef.current) return;
+      
+      groupRef.current.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.userData.partIndex !== undefined) {
+              const overrideId = partOverrides[child.userData.partIndex];
+              if (overrideId) {
+                   const cOption = colors.find(c => c.id === overrideId);
+                   if (cOption) {
+                        const newMat = baseMaterials.cabinet.clone();
+                        const texture = cOption.textureUrl ? loadTexture(cOption.textureUrl) : null;
+                        if (texture) {
+                            newMat.map = texture;
+                            newMat.color.set(0xffffff);
+                        } else {
+                            newMat.map = null;
+                            newMat.color.set(cOption.hex);
+                        }
+                        if (cOption.category === 'wood') { newMat.roughness = 0.7; newMat.metalness = 0.0; }
+                        else if (cOption.category === 'stone') { newMat.roughness = 0.5; newMat.metalness = 0.1; }
+                        else if (cOption.category === 'metal') { newMat.roughness = 0.2; newMat.metalness = 0.8; }
+                        else { newMat.roughness = 0.4; newMat.metalness = 0.1; }
+
+                        child.material = newMat;
+                   }
+              }
+          }
+      });
+  }, [partOverrides, config, colors, baseMaterials]); 
+
+  // Optimize label updates - only update visual state of sprites, don't recreate them unless needed
+  useEffect(() => {
+    if (axesGroupRef.current) {
+        axesGroupRef.current.visible = showPartLabels;
+    }
+
+    if (!labelsGroupRef.current || !groupRef.current) return;
+    const labelsGroup = labelsGroupRef.current;
+
+    const now = performance.now();
+    // Only full label rebuild on config change or enable
+    // Check if we already have labels
+    const hasLabels = labelsGroup.children.length > 0;
+    
+    // Only highlight update needed if labels exist and just hover changed
+    if (hasLabels && showPartLabels) {
+        if (now - lastHoverUpdateRef.current > 50) {
+            labelsGroup.children.forEach((child) => {
+                if (child instanceof THREE.Sprite) {
+                    const isHovered = hoveredPartIndex === child.userData.targetPartIndex;
+                    const isSelected = selectedPartIndex === child.userData.targetPartIndex;
+                    
+                    if (isHovered || isSelected) {
+                        child.scale.set(0.25, 0.25, 0.25);
+                        child.material.color.set(isSelected ? 0x00ff00 : 0xff0000);
+                    } else {
+                        child.scale.set(0.15, 0.15, 0.15);
+                        child.material.color.set(0xffffff);
+                    }
+                }
+            });
+            lastHoverUpdateRef.current = now;
+        }
+        return;
+    }
+
+    // Full Rebuild logic (should happen rarely, e.g. on config change)
+    labelsGroup.clear();
+
+    if (!showPartLabels) return;
+
+    let counter = 1;
+    
+    const createLabel = (text: string, position: THREE.Vector3, partIndex: number) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.beginPath();
+            ctx.arc(32, 32, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(32, 32, 30, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.font = 'bold 32px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 32, 32);
+        }
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
+        const sprite = new THREE.Sprite(material);
+        sprite.position.copy(position);
+        sprite.scale.set(0.15, 0.15, 0.15);
+        sprite.renderOrder = 9999;
+        sprite.userData.targetPartIndex = partIndex;
+        return sprite;
+    };
+
+    groupRef.current.updateMatrixWorld(true);
+
+    groupRef.current.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+            child.userData.partIndex = counter;
+            
+            // Logic to hide specific parts if needed (e.g. stove side filler in type-ii)
+            if ((isTypeII(config.doorType)) && counter === 27) {
+                child.visible = false;
+            } else {
+                child.visible = true;
+            }
+
+            if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            child.geometry.boundingBox?.getCenter(center);
+            center.applyMatrix4(child.matrixWorld);
+            
+            const label = createLabel(counter.toString(), center, counter);
+            labelsGroup.add(label);
+            
+            counter++;
+        }
+    });
+  }, [showPartLabels, config, hoveredPartIndex, selectedPartIndex]);
+
+  useEffect(() => {
+    if (controlsRef.current) { controlsRef.current.autoRotate = isAutoRotating; }
+  }, [isAutoRotating]);
+
+  useEffect(() => {
+      if (!sceneRef.current) return;
+      setIsLoading(true);
+      const scene = sceneRef.current;
+      
+      const disposeGroup = (g: THREE.Group) => {
+          g.traverse((child) => {
+             if (child instanceof THREE.Mesh) {
+                 if (child.geometry) child.geometry.dispose();
+                 if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach((m: THREE.Material) => { 
+                            if (m instanceof THREE.SpriteMaterial) {
+                                m.map?.dispose();
+                            }
+                            m.dispose(); 
+                        });
+                    } else {
+                        if (child.material instanceof THREE.SpriteMaterial) {
+                             child.material.map?.dispose();
+                        }
+                        child.material.dispose();
+                    }
+                 }
+             }
+          });
+          scene.remove(g);
+      };
+
+      if (prevGroupRef.current) {
+          disposeGroup(prevGroupRef.current);
+          prevGroupRef.current = null;
+      }
+      
+      if (transitionFrameRef.current) {
+          cancelAnimationFrame(transitionFrameRef.current);
+          transitionFrameRef.current = 0;
+      }
+      
+      const doorTypeChanged = prevConfigRef.current ? prevConfigRef.current.doorType !== config.doorType : false;
+      const widthChanged = prevConfigRef.current ? prevConfigRef.current.width !== config.width : false;
+      const heightChanged = prevConfigRef.current ? prevConfigRef.current.height !== config.height : false;
+      const backStyleChanged = prevConfigRef.current ? prevConfigRef.current.backStyle !== config.backStyle : false;
+      const sinkBaseTypeChanged = prevConfigRef.current ? prevConfigRef.current.sinkBaseType !== config.sinkBaseType : false;
+      const typeIIStyleChanged = prevConfigRef.current ? prevConfigRef.current.typeIIStyle !== config.typeIIStyle : false;
+      const cupboardChanged = prevConfigRef.current ? (prevConfigRef.current.cupboardType !== config.cupboardType || prevConfigRef.current.cupboardWidth !== config.cupboardWidth || prevConfigRef.current.cupboardDepth !== config.cupboardDepth) : false;
+      const cupboardLayoutChanged = prevConfigRef.current ? prevConfigRef.current.cupboardLayout !== config.cupboardLayout : false;
+      const isStructuralChange = doorTypeChanged || widthChanged || heightChanged || backStyleChanged || sinkBaseTypeChanged || typeIIStyleChanged || cupboardChanged || cupboardLayoutChanged;
+      const isInitialSelection = prevConfigRef.current?.doorType === 'unselected' && config.doorType !== 'unselected';
+
+      prevConfigRef.current = config;
+      
+      const onRenderComplete = (group: THREE.Group) => {
+          finalizeMaterials(group);
+
+          // Calculate bounding box and set new orbit target
+          if (controlsRef.current) {
+              const box = new THREE.Box3().setFromObject(group);
+              const center = box.getCenter(new THREE.Vector3());
+              const size = box.getSize(new THREE.Vector3());
+              // Set pivot to the center of the model's floor plane, with Y at half height for better UX
+              controlsRef.current.target.set(center.x, size.y / 2, center.z);
+              controlsRef.current.update();
+          }
+
+          // Hide loader after a short delay
+          setTimeout(() => setIsLoading(false), 300);
+      };
+
+      const animateFade = (group: THREE.Group, startOpacity: number, endOpacity: number, onComplete: () => void) => {
+          let opacity = startOpacity;
+          const increment = 0.011; 
+          const direction = endOpacity > startOpacity ? 1 : -1;
+
+          group.traverse((child) => {
+              if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
+                  const setupMat = (mat: THREE.Material) => { mat.transparent = true; mat.depthWrite = false; };
+                  if (Array.isArray(child.material)) { child.material.forEach(setupMat); } 
+                  else if (child.material) { setupMat(child.material); }
+              }
+          });
+
+          const animationLoop = () => {
+              opacity += increment * direction;
+              const isFinished = direction === 1 ? opacity >= endOpacity : opacity <= endOpacity;
+              if (isFinished) opacity = endOpacity;
+
+              group.traverse((child) => {
+                  if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
+                      const setOp = (m: THREE.Material) => { m.opacity = opacity; };
+                      if (Array.isArray(child.material)) { child.material.forEach(setOp); } 
+                      else if (child.material) { setOp(child.material); }
+                  }
+              });
+
+              if (isFinished) {
+                  transitionFrameRef.current = 0;
+                  onComplete();
+              } else {
+                  transitionFrameRef.current = requestAnimationFrame(animationLoop);
+              }
+          };
+          transitionFrameRef.current = requestAnimationFrame(animationLoop);
+      };
+      
+      const finalizeMaterials = (group: THREE.Group) => {
+          const baseScaleX = config.sinkPosition === 'right' ? -1 : 1;
+          group.scale.set(baseScaleX, 1, 1);
+          group.traverse((child) => {
+              if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
+                  const finalMat = (m: THREE.Material) => { m.transparent = false; m.opacity = 1; m.depthWrite = true; m.needsUpdate = true; };
+                  if (Array.isArray(child.material)) { child.material.forEach(finalMat); } 
+                  else if (child.material) { finalMat(child.material); }
+              }
+          });
+      };
+      
+      if (config.doorType === 'unselected') {
+          if (groupRef.current) { disposeGroup(groupRef.current); groupRef.current = null; }
+          setIsLoading(false);
+          return; 
+      }
+
+      if (isStructuralChange) {
+          const oldGroup = groupRef.current;
+          groupRef.current = null;
+          if (oldGroup) { disposeGroup(oldGroup); }
+          
+          const newGroup = createKitchenGroup(config);
+          scene.add(newGroup);
+          groupRef.current = newGroup;
+          
+          if (isInitialSelection) {
+            animateFade(newGroup, 0.0, 1.0, () => onRenderComplete(newGroup));
+          } else {
+            onRenderComplete(newGroup);
+          }
+          
+      } else { 
+          const newGroup = createKitchenGroup(config);
+          const baseScaleX = config.sinkPosition === 'right' ? -1 : 1;
+          newGroup.scale.set(baseScaleX * 1.0005, 1.0005, 1.0005);
+          scene.add(newGroup);
+          
+          const oldGroup = groupRef.current;
+          prevGroupRef.current = oldGroup; 
+          groupRef.current = newGroup;
+          
+          animateFade(newGroup, 0.0, 1.0, () => {
+              onRenderComplete(newGroup);
+              if (prevGroupRef.current) { 
+                  disposeGroup(prevGroupRef.current);
+                  prevGroupRef.current = null;
+              }
+          });
+      }
+  }, [visualConfigStr, colors, baseMaterials, customModelUrl, modelLibrary]);
+
+  const showControls = config.doorType !== 'unselected';
+  
+  return (
+    <div 
+        className="relative w-full h-full bg-gray-200 cursor-move" 
+        ref={mountRef}
+        onMouseMove={handlePointerMove}
+        onClick={handleClick}
+    >
+      {isLoading && <LoadingIndicator />}
+      {showControls && (
+        <>
+          <div className="hidden lg:block absolute top-4 left-4 text-black text-xs p-4 rounded-lg bg-white/70 backdrop-blur-sm shadow-md w-64 pointer-events-none z-10">
+              <div className="font-bold text-sm mb-2 border-b border-gray-400/50 pb-1">{getOptionName(doorTypes, config.doorType)}</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <span className="font-semibold text-gray-600">サイズ:</span>
+                <span className="text-right">W{config.width} / H{config.height}</span>
+                <span className="font-semibold text-gray-600">カウンター:</span>
+                <span className="text-right truncate">{colors.find(c=>c.id === config.counterColor)?.name}</span>
+                <span className="font-semibold text-gray-600">扉カラー:</span>
+                <span className="text-right truncate">{colors.find(c=>c.id === config.color)?.name}</span>
+                <span className="font-semibold text-gray-600">シンク位置:</span>
+                <span className="text-right">{config.sinkPosition === 'left' ? '左' : '右'}</span>
+              </div>
+          </div>
+          <div className="absolute bottom-4 left-4 flex-col gap-2 z-10 flex" onClick={e => e.stopPropagation()}>
+              <div className="hidden lg:flex flex-col gap-2 mb-2">
+                <span className="text-[10px] font-bold text-gray-500 bg-white/50 px-2 rounded w-fit">ADD SCENE</span>
+                <button onClick={(e) => { e.stopPropagation(); setSceneOption(prev => prev === 'dining2' ? 'none' : 'dining2'); }}
+                      className={`px-2 py-1 text-xs rounded shadow-sm transition-all ${sceneOption === 'dining2' ? 'bg-blue-600 text-white' : 'bg-white/80 text-gray-700 hover:bg-white'}`} >
+                    Dining Set
+                  </button>
+              </div>
+              <span className="text-[10px] font-bold text-gray-500 bg-white/50 px-2 rounded w-fit self-start">Scene</span>
+              <div className="flex gap-2">
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('oak'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg)', filter: 'brightness(0.7)'}} title="Oak Floor"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tile.jpg)'}} title="Tile"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('stone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/stone.jpg)'}} title="Stone"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('herringbone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg)', filter: 'brightness(0.7)'}} title="Herringbone"></button>
+                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile-black'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg)'}} title="Black Tile"></button>
+              </div>
+          </div>
+        </>
+      )}
     </div>
   );
 });
