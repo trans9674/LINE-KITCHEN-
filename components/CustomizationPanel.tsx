@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId } from '../types';
 import { getProxiedImageUrl } from '../utils';
@@ -87,6 +88,11 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     onConfirm: (() => void) | null;
   }>({ isOpen: false, onConfirm: null });
 
+  const [equipmentConfirmationOpen, setEquipmentConfirmationOpen] = useState(false);
+  const [cupboardDetailConfirmationOpen, setCupboardDetailConfirmationOpen] = useState(false);
+  const [colorConfirmationOpen, setColorConfirmationOpen] = useState(false);
+  const [otherConfirmationOpen, setOtherConfirmationOpen] = useState(false);
+
   const subPanelRef = useRef<HTMLDivElement>(null);
   const cupboardPanelRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +158,53 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     }
     return options;
   }, [settings.kitchenOptions, config.hasInnerDrawer]);
+
+  const selectedEquipment = useMemo(() => {
+      const heating = config.ihHeater 
+          ? settings.ihHeaters.find(i => i.id === config.ihHeater)
+          : settings.gasStoves.find(g => g.id === config.gasStove);
+      
+      const dishwasher = settings.dishwashers.find(d => d.id === config.dishwasher);
+      const faucet = settings.faucets.find(f => f.id === config.faucet);
+      const hood = settings.rangeHoods.find(r => r.id === config.rangeHood);
+
+      return [
+          { label: '加熱機器', item: heating },
+          { label: '食洗機', item: dishwasher },
+          { label: '水栓金具', item: faucet },
+          { label: 'レンジフード', item: hood }
+      ];
+  }, [config, settings]);
+
+  const selectedColors = useMemo(() => {
+      const counter = settings.colors.find(c => c.id === config.counterColor);
+      const door = settings.colors.find(c => c.id === config.color);
+      return [
+          { label: 'カウンター・側板', item: counter },
+          { label: '扉カラー', item: door }
+      ];
+  }, [config.counterColor, config.color, settings.colors]);
+
+  const selectedOtherOptions = useMemo(() => {
+      const items = [];
+      if (config.hasInnerDrawer) items.push({ label: 'キッチンオプション', item: settings.kitchenOptions.find(o => o.id === 'inner-drawer') });
+      if (config.hasCrossGallery) items.push({ label: 'キッチンオプション', item: settings.kitchenOptions.find(o => o.id === 'cross-gallery') });
+      if (config.hasNonSlipMat) {
+          const id = config.hasInnerDrawer ? 'non-slip-mat-inner' : 'non-slip-mat';
+          items.push({ label: 'キッチンオプション', item: settings.kitchenOptions.find(o => o.id === id) });
+      }
+      config.sinkAccessories.forEach(id => {
+          const item = settings.sinkAccessories.find(o => o.id === id);
+          if (item) items.push({ label: 'シンクアクセサリー', item });
+      });
+      if (config.kitchenPanel !== 'none') {
+          items.push({ label: 'キッチンパネル', item: settings.kitchenPanels.find(o => o.id === config.kitchenPanel) });
+      }
+      if (config.rangeHoodOption !== 'none') {
+          items.push({ label: 'レンジフードオプション', item: settings.rangeHoodOptions.find(o => o.id === config.rangeHoodOption) });
+      }
+      return items;
+  }, [config, settings]);
 
   const handleSinkAccessoryToggle = (id: string) => {
     const accessoryId = id as SinkAccessoryId;
@@ -250,6 +303,28 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
         setItemConfirmation({ isOpen: false, item: null, onConfirm: null });
       }
     });
+  };
+
+  const handleHeaderComplete = () => {
+    if (activeSubPanel === 'equipment') {
+      if (equipmentStep < 3) {
+        setEquipmentStep(prev => prev + 1);
+      } else {
+        setEquipmentConfirmationOpen(true);
+      }
+    } else if (activeSubPanel === 'cupboard') {
+        setCupboardDetailConfirmationOpen(true);
+    } else if (activeSubPanel === 'color') {
+        if (colorSelectionStep === 'counter') {
+            setColorSelectionStep('door');
+        } else {
+            setColorConfirmationOpen(true);
+        }
+    } else if (activeSubPanel === 'other') {
+        setOtherConfirmationOpen(true);
+    } else {
+      setActiveSubPanel(null);
+    }
   };
 
   const renderSubPanelContent = () => {
@@ -367,7 +442,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
           <div key={0} className="p-6 space-y-6">
             <VisualOptionGrid title="ガスコンロ" options={settings.gasStoves} selectedIds={[config.gasStove]} onSelect={(opt) => {
                 if (config.gasStove === opt.id) {
-                    updateConfig('gasStove', null);
+                    setEquipmentStep(1);
                 } else {
                     handleItemSelection(opt, () => {
                         updateConfig('gasStove', opt.id as GasStoveId);
@@ -377,7 +452,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             }} />
             <VisualOptionGrid title="IHヒーター" options={settings.ihHeaters} selectedIds={[config.ihHeater]} onSelect={(opt) => {
                 if (config.ihHeater === opt.id) {
-                    updateConfig('ihHeater', null);
+                    setEquipmentStep(1);
                 } else {
                     handleItemSelection(opt, () => {
                         updateConfig('ihHeater', opt.id as IhHeaterId);
@@ -388,29 +463,31 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
           </div>,
           <div key={1} className="p-6 space-y-6"><VisualOptionGrid title="食器洗い乾燥機" options={settings.dishwashers} selectedIds={[config.dishwasher]} onSelect={(opt) => {
                 if (config.dishwasher === opt.id) {
-                    updateConfig('dishwasher', 'none');
-                }
-                handleItemSelection(opt, () => {
-                    updateConfig('dishwasher', opt.id as DishwasherId);
                     setEquipmentStep(2);
-                });
+                } else {
+                    handleItemSelection(opt, () => {
+                        updateConfig('dishwasher', opt.id as DishwasherId);
+                        setEquipmentStep(2);
+                    });
+                }
           }} /></div>,
           <div key={2} className="p-6 space-y-6"><VisualOptionGrid title="水栓金具" options={settings.faucets} selectedIds={[config.faucet]} onSelect={(opt) => {
                 if (config.faucet === opt.id) {
-                    updateConfig('faucet', 'none');
-                }
-                handleItemSelection(opt, () => {
-                    updateConfig('faucet', opt.id as FaucetId);
                     setEquipmentStep(3);
-                });
+                } else {
+                    handleItemSelection(opt, () => {
+                        updateConfig('faucet', opt.id as FaucetId);
+                        setEquipmentStep(3);
+                    });
+                }
           }} /></div>,
           <div key={3} className="p-6 space-y-6"><VisualOptionGrid title="レンジフード" options={settings.rangeHoods} selectedIds={[config.rangeHood]} onSelect={(opt) => {
               if (config.rangeHood === opt.id) {
-                    updateConfig('rangeHood', 'none');
+                    setEquipmentConfirmationOpen(true);
                 } else {
                     handleItemSelection(opt, () => {
                         updateConfig('rangeHood', opt.id as RangeHoodId);
-                        setActiveSubPanel(null);
+                        setEquipmentConfirmationOpen(true);
                     });
                 }
           }} /></div>
@@ -490,7 +567,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
               <p className="text-sm text-gray-600">カップボード価格</p>
               <p className="text-4xl font-bold">{cupboardSelectionPrice.toLocaleString()}円</p>
             </div>
-            <button onClick={handleConfirmCupboard} className="w-full bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all">決定</button>
           </div>
         </div>
       );
@@ -602,10 +678,10 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                             <h2 className="text-xl font-bold ml-4 hidden lg:block">{subPanelTitle}</h2>
                         </div>
                         <button
-                          onClick={() => setActiveSubPanel(null)}
+                          onClick={handleHeaderComplete}
                           className="bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-2 px-5 rounded-lg shadow-md transition-all text-sm"
                         >
-                          決定
+                          {(activeSubPanel === 'equipment' && equipmentStep < 3) || (activeSubPanel === 'color' && colorSelectionStep === 'counter') ? '次へ' : '決定'}
                         </button>
                     </div>
                     
@@ -649,7 +725,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                             <p className="text-sm text-gray-600">カップボード価格</p>
                             <p className="text-4xl font-bold">{cupboardSelectionPrice.toLocaleString()}円</p>
                           </div>
-                          <button onClick={handleConfirmCupboard} className="w-full bg-[#8b8070] hover:bg-[#797061] text-white font-bold py-3 px-4 rounded-lg shadow-md transition-all">決定</button>
                         </div>
                       </div>
                     ) : (
@@ -737,6 +812,193 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
               </div>
             </div>
           </div>
+        )}
+
+        {/* Cupboard Detail Confirmation Modal */}
+        {cupboardDetailConfirmationOpen && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardDetailConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-6">
+                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
+                        
+                        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                            <div className="flex justify-between border-b border-gray-200 pb-2">
+                                <span className="text-gray-500 text-sm">タイプ</span>
+                                <span className="font-bold text-gray-800">
+                                    {config.cupboardType === 'none' 
+                                        ? 'なし' 
+                                        : settings.cupboardTypes.find(t => t.id === config.cupboardType)?.name}
+                                </span>
+                            </div>
+                            {config.cupboardType !== 'none' && (
+                                <>
+                                    <div className="flex justify-between border-b border-gray-200 pb-2">
+                                        <span className="text-gray-500 text-sm">サイズ</span>
+                                        <span className="font-bold text-gray-800">
+                                            W{config.cupboardWidth} / D{config.cupboardDepth}
+                                        </span>
+                                    </div>
+                                    {config.cupboardType === 'mix' && (
+                                        <div className="flex justify-between border-b border-gray-200 pb-2">
+                                            <span className="text-gray-500 text-sm">配置</span>
+                                            <span className="font-bold text-gray-800">
+                                                {config.cupboardLayout === 'left' ? '左 (L)' : '右 (R)'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                            <div className="flex justify-between pt-2">
+                                <span className="text-gray-500 text-sm">価格</span>
+                                <span className="font-bold text-lg text-gray-800">{cupboardSelectionPrice.toLocaleString()}円</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl border-t border-gray-100">
+                        <button 
+                            type="button"
+                            onClick={() => setCupboardDetailConfirmationOpen(false)} 
+                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
+                        >
+                            戻る
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => { 
+                                setCupboardDetailConfirmationOpen(false);
+                                handleConfirmCupboard();
+                            }} 
+                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            決定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Equipment Confirmation Modal */}
+        {equipmentConfirmationOpen && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEquipmentConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 overflow-y-auto">
+                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {selectedEquipment.map((eq, idx) => (
+                                <div key={idx} className="flex flex-col items-center text-center p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                                    <span className="text-xs font-bold text-gray-500 mb-2 bg-white px-2 py-0.5 rounded border border-gray-200">{eq.label}</span>
+                                    <div className="w-full aspect-video bg-white rounded border border-gray-100 mb-2 overflow-hidden flex items-center justify-center relative">
+                                        {eq.item?.swatchUrl ? (
+                                            <img src={getProxiedImageUrl(eq.item.swatchUrl)} className="w-full h-full object-contain" alt={eq.item.name} />
+                                        ) : <span className="text-xs text-gray-300 italic">No Image</span>}
+                                    </div>
+                                    <span className="text-xs text-gray-800 font-bold leading-tight line-clamp-2">{eq.item?.name || '選択なし'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl flex-shrink-0 border-t border-gray-100">
+                        <button 
+                            type="button"
+                            onClick={() => setEquipmentConfirmationOpen(false)} 
+                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
+                        >
+                            戻る
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => { setEquipmentConfirmationOpen(false); setActiveSubPanel(null); }} 
+                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            決定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Color Confirmation Modal */}
+        {colorConfirmationOpen && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setColorConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 overflow-y-auto">
+                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {selectedColors.map((col, idx) => (
+                                <div key={idx} className="flex flex-col items-center text-center p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                                    <span className="text-xs font-bold text-gray-500 mb-2 bg-white px-2 py-0.5 rounded border border-gray-200">{col.label}</span>
+                                    <div className="w-full aspect-square bg-white rounded border border-gray-100 mb-2 overflow-hidden flex items-center justify-center relative">
+                                        {col.item?.swatchUrl ? (
+                                            <img src={getProxiedImageUrl(col.item.swatchUrl)} className="w-full h-full object-cover" alt={col.item.name} />
+                                        ) : <span className="text-xs text-gray-300 italic">No Image</span>}
+                                    </div>
+                                    <span className="text-xs text-gray-800 font-bold leading-tight line-clamp-2">{col.item?.name || '選択なし'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl flex-shrink-0 border-t border-gray-100">
+                        <button 
+                            type="button"
+                            onClick={() => setColorConfirmationOpen(false)} 
+                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
+                        >
+                            戻る
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => { setColorConfirmationOpen(false); setActiveSubPanel(null); }} 
+                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            決定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Other Options Confirmation Modal */}
+        {otherConfirmationOpen && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setOtherConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 overflow-y-auto">
+                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
+                        {selectedOtherOptions.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                {selectedOtherOptions.map((opt, idx) => (
+                                    <div key={idx} className="flex flex-col items-center text-center p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                                        <span className="text-xs font-bold text-gray-500 mb-2 bg-white px-2 py-0.5 rounded border border-gray-200">{opt.label}</span>
+                                        <div className="w-full aspect-video bg-white rounded border border-gray-100 mb-2 overflow-hidden flex items-center justify-center relative">
+                                            {opt.item?.swatchUrl ? (
+                                                <img src={getProxiedImageUrl(opt.item.swatchUrl)} className="w-full h-full object-contain" alt={opt.item.name} />
+                                            ) : <span className="text-xs text-gray-300 italic">No Image</span>}
+                                        </div>
+                                        <span className="text-xs text-gray-800 font-bold leading-tight line-clamp-2">{opt.item?.name || '選択なし'}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">選択されたオプションはありません。</p>
+                        )}
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl flex-shrink-0 border-t border-gray-100">
+                        <button 
+                            type="button"
+                            onClick={() => setOtherConfirmationOpen(false)} 
+                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
+                        >
+                            戻る
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => { setOtherConfirmationOpen(false); setActiveSubPanel(null); }} 
+                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                        >
+                            決定
+                        </button>
+                    </div>
+                </div>
+            </div>
         )}
     </div>
   );
