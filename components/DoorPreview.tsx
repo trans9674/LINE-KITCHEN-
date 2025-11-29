@@ -436,7 +436,10 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                }
           }
           uvs.needsUpdate = true;
-          return new THREE.Mesh(geo, material);
+          const mesh = new THREE.Mesh(geo, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          return mesh;
       };
 
       const createCupboardBlock = (type: CupboardTypeId, widthCm: number, depthCm: number) => {
@@ -464,12 +467,14 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
              const kickMat = new THREE.MeshStandardMaterial({color: 0x111111});
 
              const panelThick = 0.02;
-             const leftPanelMaterial = innerSide === 'left' ? materials.blackWorktop : materials.cabinet;
+             const useBlackInnerPanel = type === 'tall';
+
+             const leftPanelMaterial = (innerSide === 'left' && useBlackInnerPanel) ? materials.blackWorktop : materials.cabinet;
              const leftPanel = createCabinetMesh(panelThick, uh, ud, leftPanelMaterial);
              leftPanel.position.set(-uw/2 + panelThick/2, 0, 0);
              leftPanel.receiveShadow = true; uGroup.add(leftPanel);
              
-             const rightPanelMaterial = innerSide === 'right' ? materials.blackWorktop : materials.cabinet;
+             const rightPanelMaterial = (innerSide === 'right' && useBlackInnerPanel) ? materials.blackWorktop : materials.cabinet;
              const rightPanel = createCabinetMesh(panelThick, uh, ud, rightPanelMaterial);
              rightPanel.position.set(uw/2 - panelThick/2, 0, 0);
              rightPanel.receiveShadow = true; uGroup.add(rightPanel);
@@ -714,7 +719,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const unit = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(unit);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
-              top.position.y = unitH + topT/2; top.receiveShadow = true;
+              top.position.y = unitH + topT/2;
               group.add(top);
 
           } else if (type === 'separate') {
@@ -722,7 +727,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const base = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(base);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
-              top.position.y = unitH + topT/2; top.receiveShadow = true;
+              top.position.y = unitH + topT/2;
               group.add(top);
               
               const upperH = 0.7;
@@ -774,8 +779,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                                   const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, shelfDepth, materials.blackWorktop);
                                   shelf.position.y = shelfH_m - shelfThickness / 2;
                                   shelf.position.z = -panelThick / 2; // Move shelf back
-                                  shelf.receiveShadow = true;
-                                  shelf.castShadow = true;
                                   group.add(shelf);
                                   
                                   const panel = createCabinetMesh(counterW - 0.004, shelfThickness, panelThick, materials.cabinet);
@@ -786,8 +789,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                               } else {
                                   const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, d, materials.blackWorktop);
                                   shelf.position.y = shelfH_m - shelfThickness / 2;
-                                  shelf.receiveShadow = true;
-                                  shelf.castShadow = true;
                                   group.add(shelf);
                               }
                           }
@@ -822,7 +823,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                   const base = createUnit(sepW, unitH, d, (unitH)/2, 'base', sepInnerSide, specialMixModeForBase);
                   sepGroup.add(base);
                   const top = createUVMappedBox(sepW, topT, d, materials.worktop);
-                  top.position.y = unitH + topT/2; top.receiveShadow = true;
+                  top.position.y = unitH + topT/2;
                   sepGroup.add(top);
 
                   const upperH = 0.7;
@@ -971,7 +972,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  
                  const mat = materials.cabinet; const thick = 0.02;
                  const apron = createCabinetMesh(displayW, Math.max(0.001, finalApronH), thick, mat);
-                 apron.position.set(0, apronY + typeITopOffset, localD/2 - thick/2); apron.receiveShadow = true; zoneGroup.add(apron);
+                 apron.position.set(0, apronY + typeITopOffset, localD/2 - thick/2); apron.receiveShadow = true; apron.castShadow = true; zoneGroup.add(apron);
 
                  const sideH = currentConfig.sinkBaseType === 'open' ? h + floatH : h;
                  const sideY = currentConfig.sinkBaseType === 'open' ? (h + floatH)/2 - floatH : h/2;
@@ -1288,24 +1289,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               sideMesh.receiveShadow = true; sideMesh.castShadow = true; blockGroup.add(sideMesh);
           }
 
-          const thinPanelThick = 0.001;
-          const thinPanelHeight = floatH + h + revealH + topH;
-          const thinPanelDepth = d + overhangFront + extraOverhang;
-          const thinPanelY = thinPanelHeight / 2;
-          const thinPanelZ = flushOffsetZ + casingZOffset;
-
-          const leftThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, materials.cabinet);
-          leftThinPanel.position.set(-w / 2 - thinPanelThick / 2, thinPanelY, thinPanelZ);
-          leftThinPanel.castShadow = true;
-          leftThinPanel.receiveShadow = true;
-          blockGroup.add(leftThinPanel);
-
-          const rightThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, materials.cabinet);
-          rightThinPanel.position.set(w / 2 + thinPanelThick / 2, thinPanelY, thinPanelZ);
-          rightThinPanel.castShadow = true;
-          rightThinPanel.receiveShadow = true;
-          blockGroup.add(rightThinPanel);
-
           if (forceBackPanel || isCounterStyle) {
               const bPanelH = floatH + h + revealH; const bPanelThick = 0.003; const bPanelW = availableW - 0.002;
               const bPanel = createCabinetMesh(bPanelW, bPanelH, bPanelThick, materials.cabinet);
@@ -1386,7 +1369,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                    const blackPanelYCenter = (blackPanelTopY + blackPanelBottomY) / 2;
                    
                    const bPanel = new THREE.Mesh(new THREE.BoxGeometry(segW, blackPanelH, 0.001), materials.rail);
-                   bPanel.position.set(startXBack + segW * i + segW / 2, blackPanelYCenter, -d / 2 + backPanelThick + 0.0005 + casingZOffset - 0.008); // Push back to avoid flicker
+                   bPanel.position.set(startXBack + segW * i + segW / 2, -d / 2 + backPanelThick + 0.0005 + casingZOffset - 0.008); // Push back to avoid flicker
                    blockGroup.add(bPanel);
                }
           }
@@ -1408,7 +1391,10 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               }
               uvs.needsUpdate = true;
               const topMesh = new THREE.Mesh(geo, materials.worktop);
-              topMesh.position.set(0, topY, topCenterZ); topMesh.receiveShadow = true; blockGroup.add(topMesh);
+              topMesh.position.set(0, topY, topCenterZ);
+              topMesh.receiveShadow = true;
+              topMesh.castShadow = true;
+              blockGroup.add(topMesh);
           } else {
               const sinkW = 0.76; const sinkD = 0.48; const sinkRealCenter = sinkZoneX; const sinkZ = accessoryZ;
               const createTopPiece = (pieceW: number, pieceD: number, x: number, z: number) => {
@@ -1428,7 +1414,10 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  uvs.needsUpdate = true;
                  
                  const m = new THREE.Mesh(geo, materials.worktop);
-                 m.position.set(x, topY, z); m.receiveShadow = true; blockGroup.add(m);
+                 m.position.set(x, topY, z);
+                 m.receiveShadow = true;
+                 m.castShadow = true;
+                 blockGroup.add(m);
               };
               const minX = -topW / 2; const maxX = topW / 2; const minZ = topCenterZ - topD / 2; const maxZ = topCenterZ + topD / 2;
               const sinkMinX = sinkRealCenter - sinkW / 2; const sinkMaxX = sinkRealCenter + sinkW / 2;
@@ -1583,7 +1572,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
       const width = currentConfig.width || 255; const height = currentConfig.height || 85; const depth = 65; 
       const wallH = 2.4; const wallThick = 0.1;
-
+      
       let effectiveIslandDepth = 90; 
       if (currentConfig.backStyle === 'counter') {
           effectiveIslandDepth = 75;
@@ -1775,7 +1764,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
@@ -1783,12 +1772,32 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.bias = -0.0001;
+    dirLight.shadow.camera.top = 4;
+    dirLight.shadow.camera.bottom = -2;
+    dirLight.shadow.camera.left = -4;
+    dirLight.shadow.camera.right = 4;
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 20;
+    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
 
     // Floor
     const floorGeo = new THREE.PlaneGeometry(20, 20);
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0xd1d1d1, roughness: 1, metalness: 0 });
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x777777, // Default to oak tint
+      roughness: 0.8,
+      metalness: 0
+    });
+
+    const oakUrl = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg';
+    const initialTexture = loadTexture(oakUrl);
+    if (initialTexture) {
+      initialTexture.wrapS = THREE.RepeatWrapping;
+      initialTexture.wrapT = THREE.RepeatWrapping;
+      initialTexture.repeat.set(12.5, 12.5);
+      floorMat.map = initialTexture;
+    }
+
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
