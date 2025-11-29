@@ -1,6 +1,7 @@
+
 import { useState, useMemo, useCallback } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, FaucetId, StorageOptionId, KitchenOptionId, SinkAccessoryId, KitchenPanelId } from '../types';
-import { INITIAL_CONFIG, CUPBOARD_PRICES, CUPBOARD_COUNTER_PRICES, CUPBOARD_DOOR_PRICES, COLORS, TYPE_II_ISLAND_UPCHARGE } from '../constants';
+import { INITIAL_CONFIG, CUPBOARD_PRICES, CUPBOARD_COUNTER_PRICES, CUPBOARD_DOOR_PRICES, COLORS, TYPE_II_ISLAND_UPCHARGE, HANGING_CABINET_PRICE } from '../constants';
 
 interface AppSettings {
   doorTypes: DoorOption<DoorTypeId>[];
@@ -36,7 +37,7 @@ export const useDoorConfiguration = (settings: AppSettings) => {
       }
 
       // Reset confirmed cupboard if related settings change
-      if (['cupboardType', 'cupboardWidth', 'cupboardDepth'].includes(key as string)) {
+      if (['cupboardType', 'cupboardWidth', 'cupboardDepth', 'cupboardStorageType'].includes(key as string)) {
         newConfig.confirmedCupboard = null;
       }
       if (key === 'cupboardType' && value === 'none') {
@@ -94,6 +95,20 @@ export const useDoorConfiguration = (settings: AppSettings) => {
         if (isNewTypeI || isNewTypeIIFamily) {
           newConfig.divider = 'none';
         }
+        
+        // Reset hanging cabinet if not Type I
+        if (!isNewTypeI) {
+            newConfig.hasHangingCabinet = false;
+        }
+
+        // Set default range hood based on kitchen type
+        if (newType === 'peninsula') {
+            newConfig.rangeHood = 'shvrl-3a-901-si';
+        } else if (newType === 'island') {
+            newConfig.rangeHood = 'flbt-90s-s5680';
+        } else if (isNewTypeI || isNewTypeIIFamily) {
+            newConfig.rangeHood = 'asr-3a-9027-si';
+        }
       }
       
       // If backStyle is changed to 'storage', update storageOption to dining-storage-plan
@@ -136,6 +151,11 @@ export const useDoorConfiguration = (settings: AppSettings) => {
     const isTypeIIFamily = config.doorType === 'type-ii' || config.doorType.startsWith('type-ii-stove-');
     if (isTypeIIFamily && config.typeIIStyle === 'island') {
         total += TYPE_II_ISLAND_UPCHARGE;
+    }
+    
+    // Add hanging cabinet price
+    if (config.hasHangingCabinet) {
+        total += HANGING_CABINET_PRICE;
     }
     
     // Counter color price

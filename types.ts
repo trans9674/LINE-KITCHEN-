@@ -43,7 +43,18 @@ export type KitchenOptionId = 'inner-drawer' | 'cross-gallery' | 'non-slip-mat' 
 export type DishwasherId = 'none' | 'rinnai-405am' | 'rinnai-sd401gpma' | 'panasonic-45md9waa' | 'miele-g5434sci' | 'miele-g5644sci' | 'miele-7130sci' | 'bosch-spi4hds006';
 export type GasStoveId = 'paloma-pkd-509ws' | 'paloma-brillio-pd-743ws' | 'paloma-brillio-pd-743w' | 'rinnai-lisse' | 'rinnai-delicia' | 'harman-do' | 'rinnai-rd641stsa';
 export type IhHeaterId = 'none' | 'mitsubishi-cs-g318m' | 'panasonic-ys-ch-trs6c' | 'panasonic-ys-ch-trs7c' | 'panasonic-ch-mrs7a1' | 'hitachi-ht-n150ktwf' | 'mitsubishi-cs-t322bfr';
-export type RangeHoodId = 'none' | 'shvrl-3a-901-si' | 'shvrl-3a-901-bk' | 'shvrl-3a-901-w' | 'fujioh-shvrl-3a-901v-si' | 'fujioh-shvrl-3a-901v-bk' | 'fujioh-shvrl-3a-901v-w' | 'no-hood';
+export type RangeHoodId = 
+  // Peninsula (Image 1)
+  'shvrl-3a-901-si' | 'shvrl-3a-901-bk' | 'shvrl-3a-901-w' | 
+  'fujioh-shvrl-3a-901v-si' | 'fujioh-shvrl-3a-901v-bk' | 'fujioh-shvrl-3a-901v-w' |
+  // Island (Image 2)
+  'flbt-90s-s5680' | 'fujioh-cblrl-3r-901vsi' |
+  // Type I / II (Image 3)
+  'asr-3a-9027-si' | 'asr-3a-9027-bk' | 'asr-3a-9027-w' |
+  'ariafina-bar-903-s4' | 'ariafina-bar-903-tb' | 'ariafina-bar-903-tw' |
+  'fujioh-asr-3a-9027v-si' | 'fujioh-asr-3a-9027v-bk' | 'fujioh-asr-3a-9027v-w' |
+  'no-hood' | 'none'; // 'none' is alias for compatibility or initial state
+
 export type RangeHoodOptionId = 'none' | 'damper-100v' | 'damper-shutter-100v' | 'height-change-700' | 'height-change-850' | 'top-plate';
 export type FaucetId = 'none' | 'grohe-jp205702' | 'sanei-k87122ejv' | 'hansgrohe-74800674' | 'sanei-k8731e1jv' | 'sanei-k8781jv-djp' | 'grohe-3028020' | 'grohe-32321gn2j' | 'sanei-ek8700e' | 'takagi-ls106mn' | 'takagi-ls106bn' | 'takagi-jy396mn' | 'takagi-lc122mn';
 export type SinkAccessoryId = 'none' | 'basket-s' | 'detergent-box' | 'cutlery-box' | 'plate-no-hole' | 'plate-hole' | 'basket-l' | 'steers' | 'cutting-board' | 'palette' | 'under-plate';
@@ -104,6 +115,8 @@ export interface DoorConfiguration {
   hasInnerDrawer: boolean;
   hasCrossGallery: boolean;
   hasNonSlipMat: boolean;
+  hasHangingCabinet: boolean; 
+  hangingCabinetHeight: 50 | 70; // New option
   dishwasher: DishwasherId;
   gasStove: GasStoveId | null;
   ihHeater: IhHeaterId | null;
@@ -118,6 +131,7 @@ export interface DoorConfiguration {
   cupboardWidth: number;
   cupboardDepth: number;
   cupboardLayout: 'left' | 'right';
+  cupboardStorageType: CupboardStorageTypeId;
   confirmedCupboard: {
     type: CupboardTypeId;
     width: number;
@@ -148,15 +162,15 @@ export type CupboardPriceMatrix = {
 };
 
 export type CupboardCounterPriceMatrix = {
-  [counterType: string]: {
-      [width: number]: number;
-  }
+  [key: string]: {
+    [width: number]: number;
+  };
 };
 
 export type CupboardDoorPriceMatrix = {
-    [cupboardType in 'floor' | 'separate' | 'tall' | 'mix']?: {
-        [doorColor: string]: {
-            [width: number]: number;
-        }
-    }
+  [key in CupboardTypeId]?: {
+    [grade: string]: {
+      [width: number]: number;
+    };
+  };
 };

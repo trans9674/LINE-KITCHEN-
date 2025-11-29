@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDoorConfiguration } from './hooks/useDoorConfiguration';
-import CustomizationPanel from './components/CustomizationPanel';
+import CustomizationPanel, { SectionKey } from './components/CustomizationPanel';
 import DoorPreview, { DoorPreviewHandle } from './components/DoorPreview';
 import AdminPanel from './components/AdminPanel';
 import PasswordModal from './components/PasswordModal';
@@ -266,14 +266,24 @@ const App: React.FC = () => {
       setPasswordError('暗証番号が違います。');
     }
   };
+  
+  const handleSectionClick = (section: SectionKey) => {
+    if (section === 'counter') {
+      doorPreviewRef.current?.rotateCameraToCounter();
+    }
+  };
+
+  const handleSubPanelClose = () => {
+    doorPreviewRef.current?.resetCamera();
+  };
 
   return (
-    <div className="w-full h-full text-gray-800 flex flex-col" style={{ backgroundColor: '#f5f2eb' }}>
+    <div className="w-full h-full text-gray-800 flex flex-col bg-stone-100">
       {appState === 'splash' && <SplashScreen />}
       
       {appState !== 'splash' && (
         <>
-          <header className="bg-white shadow-md flex-shrink-0 z-20 relative">
+          <header className="bg-stone-50 shadow-md flex-shrink-0 z-20 relative">
             <div className="container mx-auto px-4 py-4 lg:py-6 flex justify-between items-center">
               <div className="flex items-baseline gap-2 lg:gap-4 overflow-hidden">
                 <h1 className="text-xl lg:text-3xl font-light tracking-[0.2em] text-gray-800 whitespace-nowrap">
@@ -311,6 +321,9 @@ const App: React.FC = () => {
                     onConfirmCupboard={confirmCupboard}
                     touchedSections={touchedSections}
                     onSectionTouch={handleSectionTouch}
+                    onGenerate={handleGenerateRequest}
+                    onSectionClick={handleSectionClick}
+                    onSubPanelClose={handleSubPanelClose}
                   />
                 </div>
               )}
@@ -338,7 +351,6 @@ const App: React.FC = () => {
             onComplete={handleProjectInfoComplete} 
             onClose={() => setShowProjectInfoModal(false)} 
             shippingRates={appSettings.shippingRates} 
-            onGenerate={handleGenerateRequest}
             onAdminClick={handleAdminClick}
           />
       )}

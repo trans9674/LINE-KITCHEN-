@@ -3,6 +3,7 @@
 import { DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, StorageOptionId, KitchenOptionId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, DoorConfiguration, CupboardPriceMatrix, CupboardCounterPriceMatrix, CupboardDoorPriceMatrix, CupboardStorageTypeId, CupboardOptionPanelId, CupboardTypeId, ColorId } from './types';
 
 export const TYPE_II_ISLAND_UPCHARGE = 80000;
+export const HANGING_CABINET_PRICE = 105000;
 
 export const DOOR_TYPES: DoorOption<DoorTypeId>[] = [
     {
@@ -238,6 +239,7 @@ export const IH_HEATERS: DoorOption<IhHeaterId>[] = [
 ];
 
 export const RANGE_HOODS: DoorOption<RangeHoodId>[] = [
+    // Peninsula
     {
       "id": "shvrl-3a-901-si",
       "name": "シルバー/SHVRL-3A-901-SI",
@@ -274,10 +276,78 @@ export const RANGE_HOODS: DoorOption<RangeHoodId>[] = [
       "price": 56000,
       "swatchUrl": " http://25663cc9bda9549d.main.jp/aistudio/linekitchen/photo/SHVRL-3A-901V-W.jpg"
     },
+    // Island
+    {
+      "id": "flbt-90s-s5680",
+      "name": "ステンレス/FLBT-90S S5680",
+      "price": 0,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/island-2.jpg"
+    },
+    {
+      "id": "fujioh-cblrl-3r-901vsi",
+      "name": "FUJIOH 同時給排 CBLRL-3R-901VSI",
+      "price": 149000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/CBLRL-3R-901VSI.jpg"
+    },
+    // Type I / II
+    {
+      "id": "asr-3a-9027-si",
+      "name": "シルバー/ASR-3A-9027",
+      "price": 0,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/iSV.jpg"
+    },
+    {
+      "id": "asr-3a-9027-bk",
+      "name": "ブラック/ASR-3A-9027",
+      "price": 0,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/iBK.jpg"
+    },
+    {
+      "id": "asr-3a-9027-w",
+      "name": "ホワイト/ASR-3A-9027",
+      "price": 0,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/iWH.jpg"
+    },
+    {
+      "id": "ariafina-bar-903-s4",
+      "name": "アリアフィーナ/ステンレス BAR-903 S4",
+      "price": 155000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/BAR903S4.jpg"
+    },
+    {
+      "id": "ariafina-bar-903-tb",
+      "name": "アリアフィーナ/ブラック BAR-903 TB",
+      "price": 155000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/BAR903bk.jpg"
+    },
+    {
+      "id": "ariafina-bar-903-tw",
+      "name": "アリアフィーナ/ホワイト BAR-903 TW",
+      "price": 155000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/BAR903tw.jpg"
+    },
+    {
+      "id": "fujioh-asr-3a-9027v-si",
+      "name": "FUJIOH 同時給排/ASR-3A-9027V シルバー",
+      "price": 118000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/productSV.jpg"
+    },
+    {
+      "id": "fujioh-asr-3a-9027v-bk",
+      "name": "FUJIOH 同時給排/ASR-3A-9027V ブラック",
+      "price": 118000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/productBK.jpg"
+    },
+    {
+      "id": "fujioh-asr-3a-9027v-w",
+      "name": "FUJIOH 同時給排/ASR-3A-9027V ホワイト",
+      "price": 118000,
+      "swatchUrl": "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/rengefood/productWH.jpg"
+    },
     {
       "id": "no-hood",
       "name": "レンジフードなし",
-      "price": -50000
+      "price": -30000
     }
 ];
 
@@ -403,8 +473,8 @@ export const CUPBOARD_TYPES: DoorOption<CupboardTypeId>[] = [
 ];
 
 export const CUPBOARD_STORAGE_TYPES: DoorOption<CupboardStorageTypeId>[] = [
-  { id: 'opening', name: '開き', price: 0 },
-  { id: 'drawer', name: '引出し', price: 0 },
+  { id: 'opening', name: '開き', price: 0, swatchUrl: "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/tallhiraki.jpg" },
+  { id: 'drawer', name: '引出し', price: 0, swatchUrl: "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/tallhiki.jpg" },
   { id: 'opening-open', name: '開き＋オープン', price: 0 },
   { id: 'drawer-open', name: '引出し＋オープン', price: 0 },
   { id: 'opening-appliance', name: '開き＋家電収納', price: 0 },
@@ -423,7 +493,7 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   handle: 'satin-nickel',
   glassStyle: 'none',
   lock: 'none',
-  divider: 'none',
+  divider: 'glass-70',
   width: 255,
   height: 85,
   count: 1,
@@ -437,6 +507,8 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   hasInnerDrawer: false,
   hasCrossGallery: false,
   hasNonSlipMat: false,
+  hasHangingCabinet: false,
+  hangingCabinetHeight: 70, // Default height
   dishwasher: 'rinnai-405am',
   gasStove: 'paloma-pkd-509ws',
   ihHeater: null,
@@ -449,6 +521,7 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   cupboardWidth: 169,
   cupboardDepth: 45,
   cupboardLayout: 'left',
+  cupboardStorageType: 'opening',
   confirmedCupboard: null,
 };
 

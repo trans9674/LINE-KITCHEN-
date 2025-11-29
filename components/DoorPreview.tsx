@@ -2,9 +2,7 @@
 import React, { useEffect, useRef, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { ColorOption, DoorConfiguration, DoorOption, DoorTypeId, ColorId, BackStyleId, CupboardTypeId } from '../types';
+import { ColorOption, DoorConfiguration, DoorOption, DoorTypeId, ColorId, BackStyleId, CupboardTypeId, CupboardStorageTypeId } from '../types';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const SCALE = 1.0; 
@@ -58,6 +56,8 @@ interface DoorPreviewProps {
 
 export interface DoorPreviewHandle {
   getScreenshot: () => string | null;
+  rotateCameraToCounter: () => void;
+  resetCamera: () => void;
 }
 
 const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, colors, doorTypes, customModelUrl, modelLibrary }, ref) => {
@@ -65,43 +65,52 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
-  const mouseRef = useRef<THREE.Vector2>(new THREE.Vector2());
   
   const groupRef = useRef<THREE.Group | null>(null);
-  const prevGroupRef = useRef<THREE.Group | null>(null); 
-  const extrasGroupRef = useRef<THREE.Group | null>(null);
-  const labelsGroupRef = useRef<THREE.Group | null>(null);
-  const axesGroupRef = useRef<THREE.Group | null>(null); 
-  const highlightMeshRef = useRef<THREE.Mesh | null>(null);
   const floorMeshRef = useRef<THREE.Mesh | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const importedModelRef = useRef<THREE.Group | null>(null);
-  const transformControlsRef = useRef<TransformControls | null>(null);
   
-  const animationRef = useRef<number>(0);
-  const transitionFrameRef = useRef<number>(0); 
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const prevConfigRef = useRef<DoorConfiguration | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isAutoRotating, setIsAutoRotating] = useState(false);
-  const [sceneOption, setSceneOption] = useState<'none' | 'dining2'>('none');
-  const [showPartLabels, setShowPartLabels] = useState(false);
   const [floorOption, setFloorOption] = useState<'none' | 'oak' | 'tile' | 'stone' | 'herringbone' | 'tile-black'>('oak');
 
-  const [hoveredPartIndex, setHoveredPartIndex] = useState<number | null>(null);
-  const [selectedPartIndex, setSelectedPartIndex] = useState<number | null>(null);
-  const [partOverrides, setPartOverrides] = useState<Record<number, ColorId>>({});
-  
-  const [showTransformControls, setShowTransformControls] = useState(false);
-  const [transformMode, setTransformMode] = useState<'translate' | 'rotate' | 'scale'>('translate');
-  const [modelBrightness, setModelBrightness] = useState(1.0);
-  const originalModelColorsRef = useRef<WeakMap<THREE.Mesh, THREE.Color>>(new WeakMap());
+  const INITIAL_CAMERA_POSITION = useMemo(() => new THREE.Vector3(2.5, 2.0, 3.5), []);
+  const COUNTER_CAMERA_POSITION = useMemo(() => new THREE.Vector3(2.5, 2.0, -3.5), []);
+  const animationFrameId = useRef<number | null>(null);
 
-  // Throttle refs
-  const lastRaycastTimeRef = useRef<number>(0);
-  const lastHoverUpdateRef = useRef<number>(0);
+  const animateCameraTo = (targetPosition: THREE.Vector3) => {
+      if (animationFrameId.current) {
+          cancelAnimationFrame(animationFrameId.current);
+      }
+
+      const camera = cameraRef.current;
+      const controls = controlsRef.current;
+      if (!camera || !controls) return;
+
+      const startPosition = camera.position.clone();
+      const duration = 3000; // 3 second animation
+      let startTime = 0;
+
+      const animate = (time: number) => {
+          if (startTime === 0) startTime = time;
+          const elapsedTime = time - startTime;
+          const progress = Math.min(elapsedTime / duration, 1);
+          
+          const easeProgress = 1 - Math.pow(1 - progress, 4); // Ease-out quart
+
+          camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
+          controls.update();
+
+          if (progress < 1) {
+              animationFrameId.current = requestAnimationFrame(animate);
+          } else {
+              animationFrameId.current = null;
+          }
+      };
+
+      animationFrameId.current = requestAnimationFrame(animate);
+  };
+
 
   useImperativeHandle(ref, () => ({
     getScreenshot: () => {
@@ -110,87 +119,19 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
         return rendererRef.current.domElement.toDataURL('image/png');
       }
       return null;
+    },
+    rotateCameraToCounter: () => {
+        animateCameraTo(COUNTER_CAMERA_POSITION);
+    },
+    resetCamera: () => {
+        animateCameraTo(INITIAL_CAMERA_POSITION);
     }
   }));
-
-  const visualConfigStr = useMemo(() => {
-    const { doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard } = config;
-    return JSON.stringify({ doorType, color, counterColor, handle, glassStyle, lock, divider, width, height, sinkPosition, frameType, backStyle, sinkBaseType, typeIIStyle, rangeHood, faucet, cupboardType, cupboardWidth, cupboardDepth, cupboardLayout, confirmedCupboard });
-  }, [config]);
 
   const getOptionName = <T extends string>(options: DoorOption<T>[], id: T): string => {
     const found = options.find(o => o.id === id);
     return found ? found.name : '不明';
   };
-
-  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !sceneRef.current) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const contents = event.target?.result;
-        if (contents && typeof contents !== 'string') {
-            const loader = new GLTFLoader();
-            loader.parse(contents, '', (gltf) => {
-                const scene = sceneRef.current;
-                if (importedModelRef.current) {
-                    if (transformControlsRef.current) transformControlsRef.current.detach();
-                    scene?.remove(importedModelRef.current);
-                    importedModelRef.current.traverse((child) => {
-                        if (child instanceof THREE.Mesh) {
-                            child.geometry?.dispose();
-                            if (Array.isArray(child.material)) {
-                                child.material.forEach(m => m.dispose());
-                            } else {
-                                child.material?.dispose();
-                            }
-                        }
-                    });
-                }
-                
-                const model = gltf.scene;
-                
-                // Reset brightness and clear old color data
-                setModelBrightness(1.0);
-                originalModelColorsRef.current = new WeakMap();
-
-                const box = new THREE.Box3().setFromObject(model);
-                const size = box.getSize(new THREE.Vector3());
-                const center = box.getCenter(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const scale = 1.0 / maxDim; 
-                
-                model.scale.set(scale, scale, scale);
-                model.position.sub(center.multiplyScalar(scale));
-                
-                model.position.x = 2.0; 
-                
-                model.traverse((child) => {
-                    if (child instanceof THREE.Mesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        // Store original color
-                        if (child.material instanceof THREE.MeshStandardMaterial) {
-                            originalModelColorsRef.current.set(child, child.material.color.clone());
-                        }
-                    }
-                });
-
-                scene?.add(model);
-                importedModelRef.current = model;
-                setShowTransformControls(true); // Automatically enable controls for new model
-            }, (error) => {
-                console.error('Error parsing GLB file', error);
-                alert('GLBファイルの読み込みに失敗しました。');
-            });
-        }
-    };
-    if (e.target) {
-        e.target.value = '';
-    }
-  };
-
 
   const baseMaterials = useMemo(() => {
       const texDishwasher = loadTexture('http://25663cc9bda9549d.main.jp/aistudio/linekitchen/T000672.jpg');
@@ -215,17 +156,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           wall: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.2 }),
           glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, metalness: 0, roughness: 0, ior: 1.5, thickness: 0.01, transparent: true, side: THREE.DoubleSide }),
           bracket: new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide }),
-          
-          chairWood: new THREE.MeshStandardMaterial({ color: 0xD9CBB0, roughness: 0.6, metalness: 0.0 }), // Ash/Oak-like
-          chairSeat: new THREE.MeshStandardMaterial({ color: 0xE0D6C2, roughness: 1.0, metalness: 0.0, bumpScale: 0.01 }), // Paper cord
-          
-          translucentFurniture: new THREE.MeshStandardMaterial({ 
-            color: 0xECEAE6, roughness: 0.2, metalness: 0.0,
-          }),
-          pendantLight: new THREE.MeshStandardMaterial({ 
-            color: 0x111111, roughness: 0.3, metalness: 0.2,
-            emissive: 0xffffee, emissiveIntensity: 0.5
-          }),
       };
   }, []);
 
@@ -345,18 +275,23 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           dishwasher: baseMaterials.dishwasher.clone(), hood: baseMaterials.hood.clone(), line: baseMaterials.line.clone(),
           rail: baseMaterials.rail.clone(),
           wall: baseMaterials.wall.clone(), bracket: baseMaterials.bracket.clone(),
+          blackWorktop: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }),
       };
       
       const rangeHoodId = currentConfig.rangeHood;
-      if (rangeHoodId.endsWith('-si')) {
+      const isSilver = rangeHoodId.endsWith('-si') || rangeHoodId.endsWith('s5680') || rangeHoodId.endsWith('901vsi') || rangeHoodId.endsWith('s4');
+      const isBlack = rangeHoodId.endsWith('-bk') || rangeHoodId.endsWith('tb');
+      const isWhite = rangeHoodId.endsWith('-w') || rangeHoodId.endsWith('tw');
+
+      if (isSilver) {
           materials.hood.color.set(0xcccccc); // Silver
           materials.hood.metalness = 0.8;
           materials.hood.roughness = 0.2;
-      } else if (rangeHoodId.endsWith('-bk')) {
+      } else if (isBlack) {
           materials.hood.color.set(0x222222); // Black
           materials.hood.metalness = 0.4;
           materials.hood.roughness = 0.5;
-      } else if (rangeHoodId.endsWith('-w')) {
+      } else if (isWhite) {
           materials.hood.color.set(0xf0f0f0); // White
           materials.hood.metalness = 0.1;
           materials.hood.roughness = 0.6;
@@ -509,22 +444,33 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           if (type === 'none') return group;
 
           const w = widthCm * 0.01;
-          const d = (type === 'mix' ? 45 : depthCm) * 0.01;
+          const d = 45 * 0.01; // Always 45cm for all parts of mix type
           const baseH = currentConfig.height * 0.01;
           const tallH = 2.05; 
           const topT = 0.02;
           const doorThick = 0.02;
           
-          const createUnit = (uw: number, uh: number, ud: number, y: number, unitType: 'base' | 'wall' | 'tall') => {
+          const createUnit = (
+            uw: number, 
+            uh: number, 
+            ud: number, 
+            y: number, 
+            unitType: 'base' | 'wall' | 'tall', 
+            innerSide: 'left' | 'right' | 'none' = 'none',
+            specialMixMode: 'left' | 'right' | 'none' = 'none'
+          ) => {
              const uGroup = new THREE.Group();
              uGroup.position.set(0, y, 0);
+             const kickMat = new THREE.MeshStandardMaterial({color: 0x111111});
 
              const panelThick = 0.02;
-             const leftPanel = createCabinetMesh(panelThick, uh, ud, materials.cabinet);
+             const leftPanelMaterial = innerSide === 'left' ? materials.blackWorktop : materials.cabinet;
+             const leftPanel = createCabinetMesh(panelThick, uh, ud, leftPanelMaterial);
              leftPanel.position.set(-uw/2 + panelThick/2, 0, 0);
              leftPanel.receiveShadow = true; uGroup.add(leftPanel);
              
-             const rightPanel = createCabinetMesh(panelThick, uh, ud, materials.cabinet);
+             const rightPanelMaterial = innerSide === 'right' ? materials.blackWorktop : materials.cabinet;
+             const rightPanel = createCabinetMesh(panelThick, uh, ud, rightPanelMaterial);
              rightPanel.position.set(uw/2 - panelThick/2, 0, 0);
              rightPanel.receiveShadow = true; uGroup.add(rightPanel);
              
@@ -540,53 +486,96 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
              const startX = -uw/2 + panelThick;
              const bottomY = -uh/2;
              
-             if (unitType === 'base') {
-                 const toeKickH = 0.10;
-                 const workingH = uh - toeKickH;
-                 const topRailH = 0.02; 
-                 const midRailH = 0.02; 
-                 const remainingH = workingH - topRailH - midRailH;
-                 
-                 const topDrawerH = remainingH * 0.3;
-                 const botDrawerH = remainingH * 0.7;
-                 
-                 const kickD = ud - 0.05;
-                 const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), new THREE.MeshStandardMaterial({color: 0x111111}));
-                 kickMesh.position.set(0, bottomY + toeKickH/2, -0.025);
-                 uGroup.add(kickMesh);
-                 
-                 let currentY = bottomY + toeKickH;
-                 
-                 const numModules = Math.max(1, Math.round(innerW / 0.8));
-                 const moduleW = innerW / numModules;
-                 
-                 for(let m=0; m<numModules; m++) {
-                     const modX = startX + moduleW/2 + (moduleW * m);
-                     const gapX = 0.007; 
-                     const dW = moduleW - gapX;
-                     
-                     const botPanel = createCabinetMesh(dW, botDrawerH, doorThick, materials.cabinet);
-                     botPanel.position.set(modX, currentY + botDrawerH/2, ud/2 - doorThick/2);
-                     botPanel.castShadow = true; botPanel.receiveShadow = true;
-                     uGroup.add(botPanel);
-                     
-                     const topPanelY = currentY + botDrawerH + midRailH;
-                     const topPanel = createCabinetMesh(dW, topDrawerH, doorThick, materials.cabinet);
-                     topPanel.position.set(modX, topPanelY + topDrawerH/2, ud/2 - doorThick/2);
-                     topPanel.castShadow = true; topPanel.receiveShadow = true;
-                     uGroup.add(topPanel);
-                 }
-                 
-                 const railD = ud - 0.02;
-                 const mRailY = currentY + botDrawerH;
-                 const mRail = new THREE.Mesh(new THREE.BoxGeometry(innerW, midRailH, railD), materials.rail);
-                 mRail.position.set(0, mRailY + midRailH/2, 0);
-                 uGroup.add(mRail);
-                 
-                 const tRailY = currentY + botDrawerH + midRailH + topDrawerH;
-                 const tRail = new THREE.Mesh(new THREE.BoxGeometry(innerW, topRailH, railD), materials.rail);
-                 tRail.position.set(0, tRailY + topRailH/2, 0);
-                 uGroup.add(tRail);
+            if (unitType === 'base') {
+                const toeKickH = 0.10;
+                const workingH = uh - toeKickH;
+                const topRailH = 0.02; 
+                const midRailH = 0.02; 
+                const remainingH = workingH - topRailH - midRailH;
+                
+                let topDrawerH = remainingH * 0.3;
+                let botDrawerH = remainingH * 0.7;
+                
+                if (type === 'mix') {
+                    const reduction = 0.05;
+                    topDrawerH -= reduction;
+                    botDrawerH += reduction;
+                }
+                
+                const numModules = Math.max(1, Math.round(innerW / 0.8));
+                const moduleW = innerW / numModules;
+
+                // Handle Kick Panel based on special mode
+                let kickW = innerW;
+                let kickX = 0;
+                const isSpecial = specialMixMode !== 'none';
+                
+                if (isSpecial && numModules > 1) {
+                    const openModuleWidth = moduleW;
+                    kickW = innerW - openModuleWidth;
+                    if (specialMixMode === 'left') {
+                        kickX = startX + openModuleWidth + kickW / 2;
+                    } else { // 'right'
+                        kickX = startX + kickW / 2;
+                    }
+                }
+                
+                if (kickW > 0.01) {
+                    const kickD = ud - 0.05;
+                    const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(kickW, toeKickH, kickD), kickMat);
+                    let kickZ = -0.025;
+                    if (type === 'tall' || type === 'mix') {
+                        kickZ += 0.01;
+                    }
+                    kickMesh.position.set(kickX, bottomY + toeKickH/2, kickZ);
+                    uGroup.add(kickMesh);
+
+                    const frontPanelThick = 0.003;
+                    const frontPanel = createCabinetMesh(kickW, toeKickH, frontPanelThick, kickMat);
+                    const frontPanelZ = ud/2 - frontPanelThick/2;
+                    frontPanel.position.set(kickX, bottomY + toeKickH/2, frontPanelZ);
+                    uGroup.add(frontPanel);
+                }
+                
+                // Handle Modules
+                for(let m=0; m<numModules; m++) {
+                    const modX = startX + moduleW/2 + (moduleW * m);
+                    const gapX = 0.007; 
+                    const dW = moduleW - gapX;
+                    
+                    const isOpenModule = isSpecial && (
+                        (specialMixMode === 'left' && m === 0) ||
+                        (specialMixMode === 'right' && m === numModules - 1)
+                    );
+
+                    let currentY = bottomY + toeKickH;
+                    const railD = ud - 0.02;
+
+                    // Top drawer and its rails are always present
+                    const topPanelY = currentY + botDrawerH + midRailH;
+                    const topPanel = createCabinetMesh(dW, topDrawerH, doorThick, materials.cabinet);
+                    topPanel.position.set(modX, topPanelY + topDrawerH/2, ud/2 - doorThick/2);
+                    topPanel.castShadow = true; topPanel.receiveShadow = true;
+                    uGroup.add(topPanel);
+
+                    const mRailY = currentY + botDrawerH;
+                    const mRail = new THREE.Mesh(new THREE.BoxGeometry(dW, midRailH, railD), materials.rail);
+                    mRail.position.set(modX, mRailY + midRailH/2, 0);
+                    uGroup.add(mRail);
+                    
+                    const tRailY = currentY + botDrawerH + midRailH + topDrawerH;
+                    const tRail = new THREE.Mesh(new THREE.BoxGeometry(dW, topRailH, railD), materials.rail);
+                    tRail.position.set(modX, tRailY + topRailH/2, 0);
+                    uGroup.add(tRail);
+                    
+                    // Bottom drawer only for non-open modules
+                    if (!isOpenModule) {
+                        const botPanel = createCabinetMesh(dW, botDrawerH, doorThick, materials.cabinet);
+                        botPanel.position.set(modX, currentY + botDrawerH/2, ud/2 - doorThick/2);
+                        botPanel.castShadow = true; botPanel.receiveShadow = true;
+                        uGroup.add(botPanel);
+                    }
+                }
 
              } else if (unitType === 'wall') {
                  const numModules = Math.max(1, Math.round(innerW / 0.6));
@@ -611,40 +600,106 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  const toeKickH = 0.10;
                  const channelH = 0.02; 
                  
-                 const lowerDoorH = (baseH - 0.02) - toeKickH - channelH;
-                 const upperDoorH = (uh - toeKickH) - lowerDoorH - channelH;
-                 
                  const kickD = ud - 0.05;
-                 const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), new THREE.MeshStandardMaterial({color: 0x111111}));
-                 kickMesh.position.set(0, bottomY + toeKickH/2, -0.025);
+                 const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), kickMat);
+                 let kickZ = -0.025;
+                 if (type === 'tall' || type === 'mix') {
+                     kickZ += 0.01;
+                 }
+                 kickMesh.position.set(0, bottomY + toeKickH/2, kickZ);
                  uGroup.add(kickMesh);
+
+                 const frontPanelThick = 0.003;
+                 const frontPanel = createCabinetMesh(innerW, toeKickH, frontPanelThick, kickMat);
+                 const frontPanelZ = ud/2 - frontPanelThick/2;
+                 frontPanel.position.set(0, bottomY + toeKickH/2, frontPanelZ);
+                 frontPanel.castShadow = true;
+                 frontPanel.receiveShadow = true;
+                 uGroup.add(frontPanel);
                  
                  const currentY = bottomY + toeKickH;
-                 const numModules = Math.max(1, Math.round(innerW / 0.6));
-                 const moduleW = innerW / numModules;
-                 
-                 for(let m=0; m<numModules; m++) {
-                     const modX = startX + moduleW/2 + (moduleW * m);
-                     const gapX = 0.007;
-                     const dW = moduleW - gapX;
-                     
-                     const ld = createCabinetMesh(dW, lowerDoorH, doorThick, materials.cabinet);
-                     ld.position.set(modX, currentY + lowerDoorH/2, ud/2 - doorThick/2);
-                     ld.castShadow = true; ld.receiveShadow = true;
-                     uGroup.add(ld);
-                     
-                     const udY = currentY + lowerDoorH + channelH;
-                     const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, materials.cabinet);
-                     udMesh.position.set(modX, udY + upperDoorH/2, ud/2 - doorThick/2);
-                     udMesh.castShadow = true; udMesh.receiveShadow = true;
-                     uGroup.add(udMesh);
+
+                 if (type === 'mix') {
+                    // Calculate drawer heights from base unit to ensure alignment
+                    const baseUnitH = baseH - topT;
+                    const baseWorkingH = baseUnitH - toeKickH;
+                    const baseTopRailH = 0.02;
+                    const baseMidRailH = 0.02;
+                    const baseRemainingH = baseWorkingH - baseTopRailH - baseMidRailH;
+                    const reduction = 0.05;
+                    const topDrawerH = (baseRemainingH * 0.3) - reduction;
+                    const botDrawerH = (baseRemainingH * 0.7) + reduction;
+
+                    // Create bottom panel
+                    const botPanel = createCabinetMesh(innerW, botDrawerH, doorThick, materials.cabinet);
+                    botPanel.position.set(0, currentY + botDrawerH / 2, ud / 2 - doorThick / 2);
+                    botPanel.castShadow = true; botPanel.receiveShadow = true;
+                    uGroup.add(botPanel);
+
+                    // Create middle channel
+                    const midChannelY = currentY + botDrawerH;
+                    const midChannel = new THREE.Mesh(new THREE.BoxGeometry(innerW, channelH, ud - 0.02), materials.rail);
+                    midChannel.position.set(0, midChannelY + channelH / 2, 0);
+                    uGroup.add(midChannel);
+
+                    // Create top panel
+                    const topPanelY = midChannelY + channelH;
+                    const topPanel = createCabinetMesh(innerW, topDrawerH, doorThick, materials.cabinet);
+                    topPanel.position.set(0, topPanelY + topDrawerH / 2, ud / 2 - doorThick / 2);
+                    topPanel.castShadow = true; topPanel.receiveShadow = true;
+                    uGroup.add(topPanel);
+
+                    // Create top channel
+                    const topChannelY = topPanelY + topDrawerH;
+                    const topChannel = new THREE.Mesh(new THREE.BoxGeometry(innerW, channelH, ud - 0.02), materials.rail);
+                    topChannel.position.set(0, topChannelY + channelH / 2, 0);
+                    uGroup.add(topChannel);
+
+                    // Create upper doors in remaining space
+                    const upperDoorStartY = topChannelY + channelH;
+                    const upperDoorH = (uh / 2) - upperDoorStartY; // Top of unit to start of doors
+                    
+                    const numModulesUpper = Math.max(1, Math.round(innerW / 0.6));
+                    const moduleWUpper = innerW / numModulesUpper;
+                    for (let m = 0; m < numModulesUpper; m++) {
+                        const modX = startX + moduleWUpper / 2 + (moduleWUpper * m);
+                        const gapX = 0.007;
+                        const dW = moduleWUpper - gapX;
+                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, materials.cabinet);
+                        udMesh.position.set(modX, upperDoorStartY + upperDoorH / 2, ud / 2 - doorThick / 2);
+                        udMesh.castShadow = true; udMesh.receiveShadow = true;
+                        uGroup.add(udMesh);
+                    }
+
+                 } else { // Standard tall unit logic
+                    const lowerDoorH = (baseH - 0.02) - toeKickH - channelH;
+                    const ld = createCabinetMesh(innerW, lowerDoorH, doorThick, materials.cabinet);
+                    ld.position.set(0, currentY + lowerDoorH/2, ud/2 - doorThick/2);
+                    ld.castShadow = true; ld.receiveShadow = true;
+                    uGroup.add(ld);
+                    
+                    const chY = currentY + lowerDoorH;
+                    const ch = new THREE.Mesh(new THREE.BoxGeometry(innerW, channelH, ud - 0.02), materials.rail);
+                    ch.position.set(0, chY + channelH/2, 0);
+                    uGroup.add(ch);
+
+                    const upperDoorH = (uh - toeKickH) - lowerDoorH - channelH;
+                    const numModulesUpper = Math.max(1, Math.round(innerW / 0.6));
+                    const moduleWUpper = innerW / numModulesUpper;
+
+                    for(let m=0; m<numModulesUpper; m++) {
+                        const modX = startX + moduleWUpper/2 + (moduleWUpper * m);
+                        const gapX = 0.007;
+                        const dW = moduleWUpper - gapX;
+                        
+                        const udY = currentY + lowerDoorH + channelH;
+                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, materials.cabinet);
+                        udMesh.position.set(modX, udY + upperDoorH/2, ud/2 - doorThick/2);
+                        udMesh.castShadow = true; udMesh.receiveShadow = true;
+                        uGroup.add(udMesh);
+                    }
                  }
                  
-                 const chY = currentY + lowerDoorH;
-                 const ch = new THREE.Mesh(new THREE.BoxGeometry(innerW, channelH, ud - 0.02), materials.rail);
-                 ch.position.set(0, chY + channelH/2, 0);
-                 uGroup.add(ch);
-
                  const body = createCabinetMesh(innerW, uh, ud - doorThick, materials.cabinet);
                  body.position.set(0, 0, -doorThick/2);
                  body.receiveShadow = true;
@@ -656,7 +711,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
           if (type === 'floor') {
               const unitH = baseH - topT;
-              const unit = createUnit(w, unitH, d, (unitH)/2, 'base');
+              const unit = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(unit);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
               top.position.y = unitH + topT/2; top.receiveShadow = true;
@@ -664,7 +719,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
           } else if (type === 'separate') {
               const unitH = baseH - topT;
-              const base = createUnit(w, unitH, d, (unitH)/2, 'base');
+              const base = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(base);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
               top.position.y = unitH + topT/2; top.receiveShadow = true;
@@ -673,11 +728,75 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const upperH = 0.7;
               const upperY = tallH - upperH/2;
               const upperD = 0.35;
-              group.add(createUnit(w, upperH, upperD, upperY, 'wall'));
+              group.add(createUnit(w, upperH, upperD, upperY, 'wall', 'none', 'none'));
 
           } else if (type === 'tall') {
-              group.add(createUnit(w, tallH, d, tallH/2, 'tall'));
+              let unitW_m = 0;
 
+              if (widthCm === 169 || widthCm === 184) {
+                  unitW_m = (94 / 2) * 0.01;
+              } else if (widthCm === 244 || widthCm === 259 || widthCm === 274) {
+                  const counterW_m = 0.90;
+                  unitW_m = (w - counterW_m) / 2;
+              }
+
+              if (unitW_m > 0) {
+                  const leftUnit = createUnit(unitW_m, tallH, d, tallH/2, 'tall', 'right', 'none');
+                  leftUnit.position.x = -w / 2 + unitW_m / 2;
+                  group.add(leftUnit);
+                  
+                  const rightUnit = createUnit(unitW_m, tallH, d, tallH/2, 'tall', 'left', 'none');
+                  rightUnit.position.x = w / 2 - unitW_m / 2;
+                  group.add(rightUnit);
+
+                  // Add counter/shelves and back panel in the middle
+                  const counterW = w - (2 * unitW_m);
+                  if (counterW > 0.01) {
+                      // Add back panel
+                      const backPanelThick = 0.02;
+                      const backPanel = createCabinetMesh(counterW, tallH, backPanelThick, materials.blackWorktop);
+                      backPanel.position.set(0, tallH / 2, -d / 2 + backPanelThick / 2);
+                      backPanel.receiveShadow = true;
+                      group.add(backPanel);
+                      
+                      // Add shelves
+                      const shelfHeights = [80, 115, 165]; // Top shelf removed
+                      const defaultShelfThickness = 0.03; 
+                      
+                      shelfHeights.forEach(heightCm => {
+                          const shelfH_m = heightCm * 0.01;
+                          const shelfThickness = (heightCm === 80) ? 0.07 : defaultShelfThickness; // Bottom shelf thicker
+                          
+                          if (shelfH_m <= tallH) { 
+                              if (heightCm === 80) {
+                                  const panelThick = 0.003;
+                                  const shelfDepth = d - panelThick;
+                                  const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, shelfDepth, materials.blackWorktop);
+                                  shelf.position.y = shelfH_m - shelfThickness / 2;
+                                  shelf.position.z = -panelThick / 2; // Move shelf back
+                                  shelf.receiveShadow = true;
+                                  shelf.castShadow = true;
+                                  group.add(shelf);
+                                  
+                                  const panel = createCabinetMesh(counterW - 0.004, shelfThickness, panelThick, materials.cabinet);
+                                  panel.position.set(0, shelfH_m - shelfThickness / 2, d / 2 - panelThick / 2);
+                                  panel.castShadow = true;
+                                  panel.receiveShadow = true;
+                                  group.add(panel);
+                              } else {
+                                  const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, d, materials.blackWorktop);
+                                  shelf.position.y = shelfH_m - shelfThickness / 2;
+                                  shelf.receiveShadow = true;
+                                  shelf.castShadow = true;
+                                  group.add(shelf);
+                              }
+                          }
+                      });
+                  }
+              } else {
+                  // Fallback for other widths (e.g., 94)
+                  group.add(createUnit(w, tallH, d, tallH/2, 'tall', 'none', 'none'));
+              }
           } else if (type === 'mix') {
               const tallW = 0.90;
               const sepW = w - tallW;
@@ -686,16 +805,21 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               if (sepW > 0) {
                   const tallX = isFlipped ? (-w/2 + tallW/2) : (w/2 - tallW/2);
                   const sepX = isFlipped ? (w/2 - sepW/2) : (-w/2 + sepW/2);
+                  const sepInnerSide = isFlipped ? 'left' : 'right';
+                  const tallInnerSide = isFlipped ? 'right' : 'left';
 
-                  const tallPart = createUnit(tallW, tallH, d, tallH/2, 'tall');
+                  const tallPart = createUnit(tallW, tallH, d, tallH/2, 'tall', tallInnerSide, 'none');
                   tallPart.position.x = tallX;
                   group.add(tallPart);
 
                   const sepGroup = new THREE.Group();
                   sepGroup.position.x = sepX;
                   
+                  const isSpecialMix = ['opening-open', 'drawer-open', 'opening-appliance', 'drawer-appliance'].includes(currentConfig.cupboardStorageType);
+                  const specialMixModeForBase = isSpecialMix ? (isFlipped ? 'right' : 'left') : 'none';
+
                   const unitH = baseH - topT;
-                  const base = createUnit(sepW, unitH, d, (unitH)/2, 'base');
+                  const base = createUnit(sepW, unitH, d, (unitH)/2, 'base', sepInnerSide, specialMixModeForBase);
                   sepGroup.add(base);
                   const top = createUVMappedBox(sepW, topT, d, materials.worktop);
                   top.position.y = unitH + topT/2; top.receiveShadow = true;
@@ -703,11 +827,11 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                   const upperH = 0.7;
                   const upperY = tallH - upperH/2;
-                  sepGroup.add(createUnit(sepW, upperH, d, upperY, 'wall'));
+                  sepGroup.add(createUnit(sepW, upperH, d, upperY, 'wall', sepInnerSide, 'none'));
                   
                   group.add(sepGroup);
               } else {
-                   group.add(createUnit(w, tallH, d, tallH/2, 'tall'));
+                   group.add(createUnit(w, tallH, d, tallH/2, 'tall', 'none', 'none'));
               }
           }
           
@@ -716,7 +840,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           const wallThick = 0.1;
           const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(wallW, wallH, wallThick), materials.wall);
           wallMesh.userData.isWall = true;
-          wallMesh.position.set(0, wallH/2, -d/2 - wallThick/2 - 0.05); 
+          wallMesh.position.set(0, wallH/2, -d/2 - wallThick/2 - 0.01); 
           group.add(wallMesh);
 
           return group;
@@ -741,7 +865,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           fullWidthKickStrip: boolean = false,
           casingZOffset: number = 0,
           hideSinkSides: boolean = false,
-          wallSide: 'none' | 'left' | 'right' = 'none'
+          wallSide: 'none' | 'left' | 'right' = 'none',
+          hasWallCabinet: boolean = false
       ) => {
           const w = widthCm * 0.01; const d = depthCm * 0.01; const topH = 0.02; const revealH = 0.02; const floatH = 0.10;
           const totalH = heightCm * 0.01; const h = Math.max(0.01, totalH - topH - revealH - floatH); 
@@ -921,8 +1046,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                 if (isSinkBaseOpen) {
                     const mat = materials.cabinet;
-                    const sideH = h + floatH; // Full height from floor
-                    const sideY = sideH / 2 - floatH;
+                    const sideH = h; // Cabinet height, not full height from floor
+                    const sideY = h / 2; // Position it within the cabinet block, not from the floor
                     const sidePanel = createCabinetMesh(thick, sideH, localD, mat);
                     sidePanel.position.set(-displayW / 2 + thick / 2, sideY, 0);
                     zoneGroup.add(sidePanel);
@@ -1054,6 +1179,80 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           if (hasDishwasher) blockGroup.add(createZoneMesh(dishwasherZoneX, dishwasherW, 'dishwasher'));
           if (middleStorageW > 0.01) blockGroup.add(createZoneMesh(middleZoneX, middleStorageW, 'storage'));
           if (hasStove) blockGroup.add(createZoneMesh(stoveZoneX, stoveUnitW, 'stove'));
+
+          if (hasWallCabinet) {
+              const wallCabH = (config.hangingCabinetHeight || 70) * 0.01;
+              const wallCabD = 0.375;
+              const hoodBottomGap = 0.80; // Standard gap from counter to hood/wall cabinet bottom
+              
+              const counterY = floatH + h + revealH + topH;
+              
+              // Align bottom of cabinet with bottom of hood (0.80m above counter)
+              const wallCabBottomY = counterY + hoodBottomGap;
+              
+              const cabinetMat = materials.cabinet;
+              const hoodW = 0.90;
+              const hoodHalf = hoodW / 2;
+              
+              // Calculate wall cabinet position
+              // Default assumption: continuous block from edges to hood
+              
+              const stoveRealX = stoveZoneX + stoveInternalXOffset;
+              const hoodMinX = stoveRealX - hoodHalf;
+              const hoodMaxX = stoveRealX + hoodHalf;
+              
+              const startXPos = -w/2 + (hasWaterfall ? panelThick : 0);
+              const endXPos = w/2 - (hasRightPanel ? panelThick : 0);
+              
+              // Create a helper to add wall cabinet segment
+              const addWallSegment = (sX: number, eX: number) => {
+                  const sW = eX - sX;
+                  if (sW > 0.1) {
+                      const cX = sX + sW / 2;
+                      const cabGroup = new THREE.Group();
+                      
+                      // Split into doors (approx 45cm each)
+                      const numDoors = Math.max(1, Math.round(sW / 0.45));
+                      const doorW = sW / numDoors;
+                      const doorThick = 0.02;
+                      
+                      for(let i=0; i<numDoors; i++) {
+                           const dX = -sW/2 + doorW/2 + (i * doorW);
+                           const gap = 0.002;
+                           const actualDW = doorW - gap;
+                           const doorMesh = createCabinetMesh(actualDW, wallCabH, doorThick, cabinetMat);
+                           doorMesh.position.set(dX, 0, wallCabD/2 - doorThick/2);
+                           doorMesh.castShadow = true; doorMesh.receiveShadow = true;
+                           cabGroup.add(doorMesh);
+                      }
+                      
+                      // Carcass
+                      const body = createCabinetMesh(sW, wallCabH, wallCabD - doorThick, cabinetMat);
+                      body.position.set(0, 0, -doorThick/2);
+                      body.castShadow = true; body.receiveShadow = true;
+                      cabGroup.add(body);
+                      
+                      // Recalculate Z based on back alignment:
+                      const backZ = -d / 2;
+                      cabGroup.position.set(cX, wallCabBottomY + wallCabH/2, backZ + wallCabD / 2 + casingZOffset + bodyZOffset);
+                      
+                      blockGroup.add(cabGroup);
+                  }
+              };
+              
+              if (hasHood) {
+                  // If stove is on the right side
+                  if (stoveRealX > 0) {
+                      addWallSegment(startXPos, hoodMinX);
+                  } else {
+                      // If stove is on the left side
+                      addWallSegment(hoodMaxX, endXPos);
+                  }
+              } else {
+                  // No hood, full width
+                  addWallSegment(startXPos, endXPos);
+              }
+          }
           
           const overhangFront = 0.00; 
           const flushOffsetZ = (overhangFront - extraOverhang) / 2;
@@ -1089,6 +1288,24 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               sideMesh.receiveShadow = true; sideMesh.castShadow = true; blockGroup.add(sideMesh);
           }
 
+          const thinPanelThick = 0.001;
+          const thinPanelHeight = floatH + h + revealH + topH;
+          const thinPanelDepth = d + overhangFront + extraOverhang;
+          const thinPanelY = thinPanelHeight / 2;
+          const thinPanelZ = flushOffsetZ + casingZOffset;
+
+          const leftThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, materials.cabinet);
+          leftThinPanel.position.set(-w / 2 - thinPanelThick / 2, thinPanelY, thinPanelZ);
+          leftThinPanel.castShadow = true;
+          leftThinPanel.receiveShadow = true;
+          blockGroup.add(leftThinPanel);
+
+          const rightThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, materials.cabinet);
+          rightThinPanel.position.set(w / 2 + thinPanelThick / 2, thinPanelY, thinPanelZ);
+          rightThinPanel.castShadow = true;
+          rightThinPanel.receiveShadow = true;
+          blockGroup.add(rightThinPanel);
+
           if (forceBackPanel || isCounterStyle) {
               const bPanelH = floatH + h + revealH; const bPanelThick = 0.003; const bPanelW = availableW - 0.002;
               const bPanel = createCabinetMesh(bPanelW, bPanelH, bPanelThick, materials.cabinet);
@@ -1105,13 +1322,13 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           }
 
           if ((hasBackStorage || isCounterStyle) && !forceBackPanel) {
-              const fPanelTopY = totalH - topH;
-              const fPanelH = fPanelTopY - 0.10;
-              const fPanelY = 0.10 + fPanelH / 2;
-              const frontFaceZ = bodyZOffset + bodyDepth/2;
-              const fPanelZ = frontFaceZ - 0.02 + casingZOffset;
+               const fPanelTopY = totalH - topH;
+               const fPanelH = fPanelTopY - 0.10;
+               const fPanelY = 0.10 + fPanelH / 2;
+               const frontFaceZ = bodyZOffset + bodyDepth/2;
+               const fPanelZ = frontFaceZ - 0.02 + casingZOffset;
 
-              const railSegments: {x: number, w: number}[] = [];
+               const railSegments: {x: number, w: number}[] = [];
               
               if (isTypeI) {
                    railSegments.push({ x: startX + availableW / 2, w: availableW });
@@ -1330,36 +1547,36 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const k = new THREE.Mesh(new THREE.BoxGeometry(w - 0.002, floatH, kickD), kickMat);
               k.position.set(x, floatH/2, kickZ);
               blockGroup.add(k);
+
+              const frontPanelThick = 0.003;
+              const frontPanel = createCabinetMesh(w - 0.002, floatH, frontPanelThick, kickMat);
+              const frontPanelZ = bodyZOffset + casingZOffset + (bodyDepth / 2) - (frontPanelThick / 2);
+              frontPanel.position.set(x, floatH / 2, frontPanelZ);
+              frontPanel.castShadow = true;
+              frontPanel.receiveShadow = true;
+              blockGroup.add(frontPanel);
           };
 
-          if (fullWidthKickStrip && !isSinkBaseOpen) {
-             addKickSegment(startX + availableW/2, availableW);
-          } else {
-              if (isStoveOnly) {
-                  addKickSegment(stoveZoneX, stoveUnitW);
-              } else {
-                  if (hasSink) {
-                      if (!isSinkBaseOpen) {
-                          addKickSegment(sinkZoneX, sinkUnitW);
-                      }
-                  }
-                  if (hasDishwasher) {
-                    if (isSinkBaseOpen) {
-                      const kickWidth = (w - sinkUnitW) - (hasWaterfall ? panelThick: 0);
-                      const kickX = sinkZoneX + sinkUnitW/2 + kickWidth/2;
-                      addKickSegment(kickX, kickWidth, null, bodyZOffset + casingZOffset - 0.02);
-                    } else {
+            if (fullWidthKickStrip && !isSinkBaseOpen) {
+                addKickSegment(startX + availableW / 2, availableW);
+            } else {
+                if (isStoveOnly) {
+                    addKickSegment(stoveZoneX, stoveUnitW);
+                } else {
+                    if (hasSink && !isSinkBaseOpen) {
+                        addKickSegment(sinkZoneX, sinkUnitW);
+                    }
+                    if (hasDishwasher) {
                         addKickSegment(dishwasherZoneX, dishwasherW);
                     }
-                  }
-                  if (middleStorageW > 0.01 && !isSinkBaseOpen) {
-                      addKickSegment(middleZoneX, middleStorageW);
-                  }
-                  if (hasStove && !isSinkBaseOpen) {
-                      addKickSegment(stoveZoneX, stoveUnitW);
-                  }
-              }
-          }
+                    if (middleStorageW > 0.01) {
+                        addKickSegment(middleZoneX, middleStorageW);
+                    }
+                    if (hasStove) {
+                        addKickSegment(stoveZoneX, stoveUnitW);
+                    }
+                }
+            }
 
           return blockGroup;
       };
@@ -1395,7 +1612,28 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
       switch(currentConfig.doorType) {
           case 'type-i': {
-              group.add(createCabinetBlock(width, depth, height, true, true, showHood, 'center', true, 0, true, 'none', true, 'cabinet', 'cabinet', 0, true));
+              group.add(createCabinetBlock(
+                width, 
+                depth, 
+                height, 
+                true, 
+                true, 
+                showHood, 
+                'center', 
+                true, 
+                0, 
+                true, 
+                'none', 
+                true, 
+                'cabinet', 
+                'cabinet', 
+                0, 
+                true, 
+                0, 
+                false, 
+                'none', 
+                currentConfig.hasHangingCabinet // Add hasWallCabinet arg
+              ));
               
               const wallGeo = new THREE.BoxGeometry(width * 0.01 + 0.2, wallH, 0.1);
               const wall = new THREE.Mesh(wallGeo, materials.wall);
@@ -1493,889 +1731,154 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
       if (currentConfig.sinkPosition === 'right') { group.scale.x = -1; }
       return group;
   };
-  
-  const createModernDiningSet = () => {
-       const group = new THREE.Group();
-       const tableMat = baseMaterials.translucentFurniture;
-
-       const tableW = 1.6;
-       const tableD = 0.8;
-       const tableH = 0.75;
-       const topT = 0.04;
-       const legSize = 0.03; 
-
-       const topGeo = new THREE.BoxGeometry(tableW, topT, tableD);
-       const tableTop = new THREE.Mesh(topGeo, tableMat);
-       tableTop.position.y = tableH - topT / 2;
-       group.add(tableTop);
-
-       const legH = tableH - topT;
-       const createFrameLeg = (x: number) => {
-            const frame = new THREE.Group();
-            frame.position.x = x;
-
-            const vertGeo = new THREE.BoxGeometry(legSize, legH, legSize);
-            const leftPost = new THREE.Mesh(vertGeo, baseMaterials.faucet);
-            leftPost.position.set(0, legH / 2, tableD/2 - legSize/2);
-            frame.add(leftPost);
-
-            const rightPost = new THREE.Mesh(vertGeo, baseMaterials.faucet);
-            rightPost.position.set(0, legH / 2, -tableD/2 + legSize/2);
-            frame.add(rightPost);
-            
-            const horizGeo = new THREE.BoxGeometry(legSize, legSize, tableD);
-            const bottomBar = new THREE.Mesh(horizGeo, baseMaterials.faucet);
-            bottomBar.position.y = legSize/2;
-            frame.add(bottomBar);
-            
-            group.add(frame);
-       };
-       
-       createFrameLeg(tableW/2 - legSize*2);
-       createFrameLeg(-tableW/2 + legSize*2);
-       
-       const createYChair = (position: THREE.Vector3, rotationY: number) => {
-            const chairGroup = new THREE.Group();
-            chairGroup.position.copy(position);
-            chairGroup.rotation.y = rotationY;
-        
-            const woodMat = baseMaterials.chairWood;
-            const seatMat = baseMaterials.chairSeat;
-        
-            // Dimensions (meters)
-            const legRadius = 0.014; 
-            const seatH = 0.425;
-            const totalH = 0.730;
-            const armH = 0.65; // Approximate height of armrest front
-        
-            // --- Back Legs (Curved) ---
-            const backLegCurveLeft = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(0.19, 0, -0.22),
-                new THREE.Vector3(0.20, seatH * 0.5, -0.18),
-                new THREE.Vector3(0.23, seatH, -0.12),
-                new THREE.Vector3(0.22, 0.60, -0.16),
-                new THREE.Vector3(0.20, totalH - 0.02, -0.20)
-            ]);
-            const backLegGeo = new THREE.TubeGeometry(backLegCurveLeft, 24, legRadius, 8, false);
-            const blL = new THREE.Mesh(backLegGeo, woodMat);
-            chairGroup.add(blL);
-        
-            const backLegCurveRight = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-0.19, 0, -0.22),
-                new THREE.Vector3(-0.20, seatH * 0.5, -0.18),
-                new THREE.Vector3(-0.23, seatH, -0.12),
-                new THREE.Vector3(-0.22, 0.60, -0.16),
-                new THREE.Vector3(-0.20, totalH - 0.02, -0.20)
-            ]);
-            const blR = new THREE.Mesh(new THREE.TubeGeometry(backLegCurveRight, 24, legRadius, 8, false), woodMat);
-            chairGroup.add(blR);
-        
-            // --- Front Legs (Extended to armrest) ---
-            const frontLegH = armH; // Extend to armrest height
-            const flGeo = new THREE.CylinderGeometry(0.015, 0.012, frontLegH, 16);
-            flGeo.translate(0, frontLegH / 2, 0); 
-            const flL = new THREE.Mesh(flGeo, woodMat);
-            flL.position.set(0.25, 0, 0.20);
-            flL.rotation.x = -0.05; 
-            flL.rotation.z = 0.05;
-            chairGroup.add(flL);
-        
-            const flR = new THREE.Mesh(flGeo.clone(), woodMat);
-            flR.position.set(-0.25, 0, 0.20);
-            flR.rotation.x = -0.05;
-            flR.rotation.z = -0.05;
-            chairGroup.add(flR);
-        
-            // --- Seat Rails ---
-            const railRadius = 0.012;
-            
-            const sideRailLeftCurve = new THREE.LineCurve3(
-                new THREE.Vector3(0.25, seatH - 0.02, 0.20),
-                new THREE.Vector3(0.23, seatH - 0.02, -0.12)
-            );
-            const srL = new THREE.Mesh(new THREE.TubeGeometry(sideRailLeftCurve, 1, railRadius, 8, false), woodMat);
-            chairGroup.add(srL);
-        
-            const sideRailRightCurve = new THREE.LineCurve3(
-                new THREE.Vector3(-0.25, seatH - 0.02, 0.20),
-                new THREE.Vector3(-0.23, seatH - 0.02, -0.12)
-            );
-            const srR = new THREE.Mesh(new THREE.TubeGeometry(sideRailRightCurve, 1, railRadius, 8, false), woodMat);
-            chairGroup.add(srR);
-            
-            const frCurve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(0.25, seatH - 0.02, 0.20),
-                new THREE.Vector3(0, seatH - 0.02, 0.23),
-                new THREE.Vector3(-0.25, seatH - 0.02, 0.20)
-            ]);
-            const fr = new THREE.Mesh(new THREE.TubeGeometry(frCurve, 12, railRadius, 8, false), woodMat);
-            chairGroup.add(fr);
-        
-            const br = new THREE.Mesh(new THREE.CylinderGeometry(railRadius, railRadius, 0.40, 8), woodMat);
-            br.rotation.z = Math.PI / 2;
-            br.position.set(0, seatH - 0.02, -0.12);
-            chairGroup.add(br);
-        
-            // --- Seat ---
-            const seatShape = new THREE.Shape();
-            seatShape.moveTo(-0.22, -0.12);
-            seatShape.lineTo(0.22, -0.12);
-            seatShape.lineTo(0.24, 0.20);
-            seatShape.lineTo(-0.24, 0.20);
-            const seatGeo = new THREE.ExtrudeGeometry(seatShape, { depth: 0.03, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01 });
-            seatGeo.rotateX(Math.PI/2);
-            const seat = new THREE.Mesh(seatGeo, seatMat);
-            seat.position.set(0, seatH - 0.01, 0);
-            chairGroup.add(seat);
-        
-            // --- Top Rail (Corrected) ---
-            const trCurve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-0.25, armH, 0.20),      // Connect to Right Front Leg
-                new THREE.Vector3(-0.20, totalH - 0.02, -0.20),  // Connect to Right Back Leg
-                new THREE.Vector3(0, totalH, -0.22),            // Back Center
-                new THREE.Vector3(0.20, totalH - 0.02, -0.20),   // Connect to Left Back Leg
-                new THREE.Vector3(0.25, armH, 0.20)       // Connect to Left Front Leg
-            ]);
-            const topRail = new THREE.Mesh(new THREE.TubeGeometry(trCurve, 32, 0.018, 16, false), woodMat);
-            chairGroup.add(topRail);
-
-            // --- Y Splat ---
-            const yShape = new THREE.Shape();
-            const yW_bot = 0.04; 
-            const yW_top = 0.26;
-            const yH = totalH - (seatH - 0.02) + 0.03; // Adjusted height
-            
-            yShape.moveTo(-yW_bot/2, 0);
-            yShape.lineTo(yW_bot/2, 0);
-            yShape.bezierCurveTo(yW_bot, yH*0.4, yW_top/2, yH*0.8, yW_top/2, yH);
-            yShape.lineTo(yW_top/2 - 0.02, yH);
-            yShape.bezierCurveTo(yW_top/4, yH*0.7, 0, yH*0.5, 0, yH*0.4);
-            yShape.bezierCurveTo(0, yH*0.5, -yW_top/4, yH*0.7, -yW_top/2 + 0.02, yH);
-            yShape.lineTo(-yW_top/2, yH);
-            yShape.bezierCurveTo(-yW_top/2, yH*0.8, -yW_bot, yH*0.4, -yW_bot/2, 0);
-        
-            const yGeo = new THREE.ExtrudeGeometry(yShape, { depth: 0.015, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.002, bevelSegments: 2 });
-            const yMesh = new THREE.Mesh(yGeo, woodMat);
-            
-            yMesh.rotation.x = 0.28; 
-            // Position adjusted to sit correctly on back rail and connect to top rail
-            yMesh.position.set(0, seatH - 0.02, -0.12);
-        
-            chairGroup.add(yMesh);
-        
-            group.add(chairGroup);
-       };
-       
-       const chairOffsetZ = tableD/2 + 0.3;
-       const chairOffsetX = tableW/4;
-
-       createYChair(new THREE.Vector3(chairOffsetX, 0, chairOffsetZ), Math.PI);
-       createYChair(new THREE.Vector3(-chairOffsetX, 0, chairOffsetZ), Math.PI);
-       createYChair(new THREE.Vector3(chairOffsetX, 0, -chairOffsetZ), 0);
-       createYChair(new THREE.Vector3(-chairOffsetX, 0, -chairOffsetZ), 0);
-       
-       const lightGroup = new THREE.Group();
-       lightGroup.position.y = tableH + 0.8;
-
-       const cordGeo = new THREE.CylinderGeometry(0.005, 0.005, 0.8, 8);
-       const cord = new THREE.Mesh(cordGeo, new THREE.MeshStandardMaterial({color: 0x222222}));
-       cord.position.y = 0.4;
-       lightGroup.add(cord);
-       
-       const fixtureGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.15, 32);
-       const fixture = new THREE.Mesh(fixtureGeo, baseMaterials.pendantLight);
-       lightGroup.add(fixture);
-       
-       group.add(lightGroup);
-       
-       return group;
-  };
-
-  const handlePointerMove = (e: React.MouseEvent) => {
-    if (!mountRef.current || !cameraRef.current || !showPartLabels) return;
-    
-    const now = performance.now();
-    if (now - lastRaycastTimeRef.current < 50) return; // Throttle to 20fps
-    lastRaycastTimeRef.current = now;
-
-    const rect = mountRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 - 1;
-    mouseRef.current.set(x, y);
-
-    raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
-    
-    // Check sprites first
-    if (labelsGroupRef.current) {
-        const spriteIntersects = raycasterRef.current.intersectObjects(labelsGroupRef.current.children, false);
-        if (spriteIntersects.length > 0) {
-            const sprite = spriteIntersects[0].object as THREE.Sprite;
-            if (sprite.userData.targetPartIndex !== undefined) {
-                if (hoveredPartIndex !== sprite.userData.targetPartIndex) {
-                    setHoveredPartIndex(sprite.userData.targetPartIndex);
-                }
-                return;
-            }
-        }
-    }
-
-    // Check meshes
-    if (groupRef.current) {
-        const meshIntersects = raycasterRef.current.intersectObjects(groupRef.current.children, true);
-        if (meshIntersects.length > 0) {
-             for (const hit of meshIntersects) {
-                 if (hit.object.userData.partIndex !== undefined) {
-                     if (hoveredPartIndex !== hit.object.userData.partIndex) {
-                        setHoveredPartIndex(hit.object.userData.partIndex);
-                     }
-                     return;
-                 }
-             }
-        }
-    }
-
-    if (hoveredPartIndex !== null) {
-        setHoveredPartIndex(null);
-    }
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-      if (!showPartLabels) return;
-      if (hoveredPartIndex !== null) {
-          e.stopPropagation();
-          setSelectedPartIndex(hoveredPartIndex);
-          setIsAutoRotating(false);
-      } else {
-          setSelectedPartIndex(null);
-      }
-  };
 
   useEffect(() => {
-      if (!mountRef.current) return; const mountNode = mountRef.current;
-      if (rendererRef.current) { if (mountNode.contains(rendererRef.current.domElement)) { mountNode.removeChild(rendererRef.current.domElement); } rendererRef.current.dispose(); }
-      
-      const scene = new THREE.Scene(); scene.background = new THREE.Color(0xffffff); sceneRef.current = scene;
-      
-      const camera = new THREE.PerspectiveCamera(45, mountNode.clientWidth / mountNode.clientHeight, 0.1, 100);
-      camera.position.set(2.0, 1.7, 2.8); cameraRef.current = camera;
-      
-      // FIX: preserveDrawingBuffer: true is required for toDataURL to work robustly without immediate re-render
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-      renderer.setSize(mountNode.clientWidth, mountNode.clientHeight); renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.toneMapping = THREE.ACESFilmicToneMapping; 
-      renderer.toneMappingExposure = 1.0; 
-      mountNode.appendChild(renderer.domElement); rendererRef.current = renderer;
-      const pmremGenerator = new THREE.PMREMGenerator(renderer);
-      scene.environment = pmremGenerator.fromScene(new RoomEnvironment(renderer), 0.1).texture;
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true; controls.dampingFactor = 0.05;
-      controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
-      controls.target.set(0, 0.8, 0);
-      controlsRef.current = controls;
-      
-      const transformControls = new TransformControls(camera, renderer.domElement);
-      transformControls.addEventListener('dragging-changed', (event) => {
-        if (controlsRef.current) {
-            controlsRef.current.enabled = !event.value;
+    if (!mountRef.current) return;
+
+    const width = mountRef.current.clientWidth;
+    const height = mountRef.current.clientHeight;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    mountRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe5e5e5);
+    sceneRef.current = scene;
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.copy(INITIAL_CAMERA_POSITION); 
+    cameraRef.current = camera;
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 1;
+    controls.maxDistance = 10;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going below floor
+    // Center the controls on the kitchen countertop height approximately
+    controls.target.set(0, 0.5, 0);
+    controlsRef.current = controls;
+
+    // Environment
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.bias = -0.0001;
+    scene.add(dirLight);
+
+    // Floor
+    const floorGeo = new THREE.PlaneGeometry(20, 20);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xd1d1d1, roughness: 1, metalness: 0 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    floorMeshRef.current = floor;
+
+    // Groups
+    const group = new THREE.Group();
+    scene.add(group);
+    groupRef.current = group;
+
+    // Resize handler
+    const handleResize = () => {
+        if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+        const w = mountRef.current.clientWidth;
+        const h = mountRef.current.clientHeight;
+        cameraRef.current.aspect = w / h;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(w, h);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Animation Loop
+    const animate = () => {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    };
+    animate();
+
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        if (rendererRef.current && mountRef.current) {
+            mountRef.current.removeChild(rendererRef.current.domElement);
         }
-      });
-      scene.add(transformControls);
-      transformControlsRef.current = transformControls;
+        renderer.dispose();
+    };
+  }, []); // Run once on mount
 
-      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.2); scene.add(hemiLight);
-      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); 
-      dirLight.position.set(-5, 15, -5); dirLight.castShadow = true; dirLight.shadow.bias = -0.0001;
-      dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
-      dirLight.shadow.camera.top = 10; dirLight.shadow.camera.bottom = -10; dirLight.shadow.camera.left = -10; dirLight.shadow.camera.right = 10;
-      scene.add(dirLight);
-      const fillLight = new THREE.DirectionalLight(0xffeedd, 0.3); fillLight.position.set(5, 8, 8); scene.add(fillLight);
-      
-      const createTextSprite = (text: string, color: string) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 64; canvas.height = 64;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-              ctx.font = 'Bold 48px Arial';
-              ctx.fillStyle = color;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(text, 32, 32);
-          }
-          const texture = new THREE.CanvasTexture(canvas);
-          const material = new THREE.SpriteMaterial({ map: texture, depthTest: false });
-          const sprite = new THREE.Sprite(material);
-          sprite.scale.set(0.25, 0.25, 0.25);
-          sprite.renderOrder = 999;
-          return sprite;
-      };
-
-      const axesGroup = new THREE.Group();
-      axesGroup.position.y = 0.01;
-      axesGroup.renderOrder = 999;
-      axesGroup.visible = false; 
-      
-      const axisLength = 1.125;
-      const headLength = 0.15;
-      const headWidth = 0.075;
-
-      const addAxis = (dir: THREE.Vector3, color: number, label: string, hexColor: string, labelOffset: THREE.Vector3) => {
-        const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0, 0, 0), axisLength, color, headLength, headWidth);
-        if (arrow.line) arrow.line.material.depthTest = false;
-        if (arrow.cone) arrow.cone.material.depthTest = false;
-        axesGroup.add(arrow);
-        const sprite = createTextSprite(label, hexColor);
-        sprite.position.copy(labelOffset);
-        axesGroup.add(sprite);
-      };
-
-      addAxis(new THREE.Vector3(1, 0, 0), 0xff0000, 'X', '#ff0000', new THREE.Vector3(axisLength + 0.1, 0, 0));
-      addAxis(new THREE.Vector3(-1, 0, 0), 0xff0000, '-X', '#ff0000', new THREE.Vector3(-(axisLength + 0.1), 0, 0));
-
-      addAxis(new THREE.Vector3(0, 1, 0), 0x00ff00, 'Y', '#00ff00', new THREE.Vector3(0, axisLength + 0.1, 0));
-      addAxis(new THREE.Vector3(0, -1, 0), 0x00ff00, '-Y', '#00ff00', new THREE.Vector3(0, -(axisLength + 0.1), 0));
-
-      addAxis(new THREE.Vector3(0, 0, 1), 0x0000ff, 'Z', '#0000ff', new THREE.Vector3(0, 0, axisLength + 0.1));
-      addAxis(new THREE.Vector3(0, 0, -1), 0x0000ff, '-Z', '#0000ff', new THREE.Vector3(0, 0, -(axisLength + 0.1)));
-      
-      scene.add(axesGroup);
-      axesGroupRef.current = axesGroup; 
-
-      const highlightMesh = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 1, 1),
-          new THREE.MeshBasicMaterial({ 
-              color: 0xff0000, 
-              transparent: true, 
-              opacity: 0.4, 
-              depthTest: false,
-              depthWrite: false,
-          })
-      );
-      highlightMesh.visible = false;
-      highlightMesh.renderOrder = 9998;
-      scene.add(highlightMesh);
-      highlightMeshRef.current = highlightMesh;
-
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 }));
-      floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-      floorMeshRef.current = floor;
-      
-      const extrasGroup = new THREE.Group(); scene.add(extrasGroup); extrasGroupRef.current = extrasGroup;
-      
-      const labelsGroup = new THREE.Group();
-      labelsGroup.position.y = 0;
-      scene.add(labelsGroup);
-      labelsGroupRef.current = labelsGroup;
-
-      const animate = () => { animationRef.current = requestAnimationFrame(animate); if (controlsRef.current) controlsRef.current.update(); renderer.render(scene, camera); };
-      animate();
-      const resizeObserver = new ResizeObserver(() => {
-          if (mountNode && camera && renderer) {
-              const width = mountNode.clientWidth; const height = mountNode.clientHeight;
-              if (width > 0 && height > 0) {
-                  const isMobile = width < 1024;
-                  if (isMobile) {
-                      controls.enableZoom = true;
-                      controls.enablePan = true;
-                      controls.minPolarAngle = 0; 
-                      controls.maxPolarAngle = Math.PI;
-                      controls.rotateSpeed = 0.5; // Lower sensitivity for touch
-                      camera.position.set(1.5, 1.4, 2.8);
-                      controls.target.set(0, 0.8, 0);
-                  } else {
-                      controls.enableZoom = true; 
-                      controls.enablePan = false; 
-                      controls.minPolarAngle = 0;
-                      controls.maxPolarAngle = Math.PI;
-                      controls.rotateSpeed = 1.0; // Default sensitivity for mouse
-                  }
-                  camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height);
-              }
-          }
-      });
-      resizeObserver.observe(mountNode);
-      
-      const fullDispose = (group: THREE.Group | null) => {
-          if (!group) return;
-          group.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
-                  child.geometry?.dispose();
-                  if (Array.isArray(child.material)) {
-                      child.material.forEach(m => {
-                          if (m instanceof THREE.SpriteMaterial && m.map && m.map.image instanceof HTMLCanvasElement) {
-                              m.map.dispose();
-                          }
-                          m.dispose();
-                      });
-                  } else if (child.material) {
-                      if (child.material instanceof THREE.SpriteMaterial && child.material.map && child.material.map.image instanceof HTMLCanvasElement) {
-                          child.material.map.dispose();
-                      }
-                      child.material.dispose();
-                  }
-              } else if (child instanceof THREE.Sprite) {
-                  child.geometry?.dispose();
-                  child.material?.map?.dispose();
-                  child.material?.dispose();
-              }
-          });
-          sceneRef.current?.remove(group);
-      };
-
-      return () => {
-          resizeObserver.disconnect(); 
-          cancelAnimationFrame(animationRef.current);
-          if (controlsRef.current) controlsRef.current.dispose();
-          if (transformControlsRef.current) {
-            transformControlsRef.current.dispose();
-          }
-          
-          fullDispose(groupRef.current);
-          fullDispose(prevGroupRef.current);
-          fullDispose(extrasGroupRef.current);
-          fullDispose(labelsGroupRef.current);
-          fullDispose(axesGroupRef.current);
-          fullDispose(importedModelRef.current);
-
-          sceneRef.current?.traverse(child => {
-              if (child instanceof THREE.Light) {
-                  sceneRef.current?.remove(child);
-              }
-          });
-
-          if (sceneRef.current) {
-              sceneRef.current.environment?.dispose();
-          }
-
-          if (rendererRef.current) {
-              if (mountNode.contains(rendererRef.current.domElement)) {
-                  mountNode.removeChild(rendererRef.current.domElement);
-              }
-              rendererRef.current.dispose();
-          }
-      };
-  }, []);
-
-  useEffect(() => {
-    const transformControls = transformControlsRef.current;
-    const model = importedModelRef.current;
-    if (transformControls && showTransformControls && model) {
-      transformControls.attach(model);
-      transformControls.setMode(transformMode);
-    } else if (transformControls) {
-      transformControls.detach();
-    }
-  }, [showTransformControls, transformMode]);
-
-  useEffect(() => {
-    const model = importedModelRef.current;
-    const originalColors = originalModelColorsRef.current;
-    if (!model || !originalColors) return;
-
-    model.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-            const originalColor = originalColors.get(child);
-            if (originalColor) {
-                child.material.color.copy(originalColor).multiplyScalar(modelBrightness);
-            }
-        }
-    });
-  }, [modelBrightness]);
-
-
-  useEffect(() => {
-      if (!extrasGroupRef.current) return;
-      const group = extrasGroupRef.current; group.clear();
-      if (sceneOption === 'dining2') {
-          const dining = createModernDiningSet();
-          dining.position.set(0, 0.001, -2.2); 
-          dining.rotation.y = Math.PI / 2; 
-          group.add(dining);
-      }
-  }, [sceneOption, baseMaterials]);
-
-  useEffect(() => {
-    if (!highlightMeshRef.current || !groupRef.current) return;
-    
-    const targetIndex = selectedPartIndex !== null ? selectedPartIndex : hoveredPartIndex;
-
-    if (targetIndex === null) {
-        highlightMeshRef.current.visible = false;
-        return;
-    }
-
-    let targetMesh: THREE.Mesh | null = null;
-    groupRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.userData.partIndex === targetIndex) {
-            targetMesh = child;
-        }
-    });
-
-    if (targetMesh) {
-        const mesh = targetMesh as THREE.Mesh;
-        if (highlightMeshRef.current.geometry !== mesh.geometry) {
-            highlightMeshRef.current.geometry.dispose();
-            highlightMeshRef.current.geometry = mesh.geometry.clone();
-        }
-        
-        mesh.updateMatrixWorld();
-        highlightMeshRef.current.matrix.copy(mesh.matrixWorld);
-        highlightMeshRef.current.matrixAutoUpdate = false;
-        
-        highlightMeshRef.current.visible = true;
-        
-        const mat = highlightMeshRef.current.material as THREE.MeshBasicMaterial;
-        if (selectedPartIndex !== null) {
-            mat.color.set(0x00ff00); 
-            mat.opacity = 0.5;
-        } else {
-            mat.color.set(0xff0000); 
-            mat.opacity = 0.3;
-        }
-    } else {
-        highlightMeshRef.current.visible = false;
-    }
-
-  }, [hoveredPartIndex, selectedPartIndex, config]); 
-
-
+  // Update Kitchen Group when config changes
   useEffect(() => {
       if (!groupRef.current) return;
       
-      groupRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.userData.partIndex !== undefined) {
-              const overrideId = partOverrides[child.userData.partIndex];
-              if (overrideId) {
-                   const cOption = colors.find(c => c.id === overrideId);
-                   if (cOption) {
-                        const newMat = baseMaterials.cabinet.clone();
-                        const texture = cOption.textureUrl ? loadTexture(cOption.textureUrl) : null;
-                        if (texture) {
-                            newMat.map = texture;
-                            newMat.color.set(0xffffff);
-                        } else {
-                            newMat.map = null;
-                            newMat.color.set(cOption.hex);
-                        }
-                        if (cOption.category === 'wood') { newMat.roughness = 0.7; newMat.metalness = 0.0; }
-                        else if (cOption.category === 'stone') { newMat.roughness = 0.5; newMat.metalness = 0.1; }
-                        else if (cOption.category === 'metal') { newMat.roughness = 0.2; newMat.metalness = 0.8; }
-                        else { newMat.roughness = 0.4; newMat.metalness = 0.1; }
-
-                        child.material = newMat;
-                   }
-              }
-          }
-      });
-  }, [partOverrides, config, colors, baseMaterials]); 
-
-  // Optimize label updates - only update visual state of sprites, don't recreate them unless needed
-  useEffect(() => {
-    if (axesGroupRef.current) {
-        axesGroupRef.current.visible = showPartLabels;
-    }
-
-    if (!labelsGroupRef.current || !groupRef.current) return;
-    const labelsGroup = labelsGroupRef.current;
-
-    const now = performance.now();
-    // Only full label rebuild on config change or enable
-    // Check if we already have labels
-    const hasLabels = labelsGroup.children.length > 0;
-    
-    // Only highlight update needed if labels exist and just hover changed
-    if (hasLabels && showPartLabels) {
-        if (now - lastHoverUpdateRef.current > 50) {
-            labelsGroup.children.forEach((child) => {
-                if (child instanceof THREE.Sprite) {
-                    const isHovered = hoveredPartIndex === child.userData.targetPartIndex;
-                    const isSelected = selectedPartIndex === child.userData.targetPartIndex;
-                    
-                    if (isHovered || isSelected) {
-                        child.scale.set(0.25, 0.25, 0.25);
-                        child.material.color.set(isSelected ? 0x00ff00 : 0xff0000);
-                    } else {
-                        child.scale.set(0.15, 0.15, 0.15);
-                        child.material.color.set(0xffffff);
-                    }
-                }
-            });
-            lastHoverUpdateRef.current = now;
-        }
-        return;
-    }
-
-    // Full Rebuild logic (should happen rarely, e.g. on config change)
-    labelsGroup.clear();
-
-    if (!showPartLabels) return;
-
-    let counter = 1;
-    
-    const createLabel = (text: string, position: THREE.Vector3, partIndex: number) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 64; canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.beginPath();
-            ctx.arc(32, 32, 30, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(32, 32, 30, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.font = 'bold 32px Arial';
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, 32, 32);
-        }
-        const texture = new THREE.CanvasTexture(canvas);
-        const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
-        const sprite = new THREE.Sprite(material);
-        sprite.position.copy(position);
-        sprite.scale.set(0.15, 0.15, 0.15);
-        sprite.renderOrder = 9999;
-        sprite.userData.targetPartIndex = partIndex;
-        return sprite;
-    };
-
-    groupRef.current.updateMatrixWorld(true);
-
-    groupRef.current.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-            child.userData.partIndex = counter;
-            
-            // Logic to hide specific parts if needed (e.g. stove side filler in type-ii)
-            if ((isTypeII(config.doorType)) && counter === 27) {
-                child.visible = false;
-            } else {
-                child.visible = true;
-            }
-
-            if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-            const center = new THREE.Vector3();
-            child.geometry.boundingBox?.getCenter(center);
-            center.applyMatrix4(child.matrixWorld);
-            
-            const label = createLabel(counter.toString(), center, counter);
-            labelsGroup.add(label);
-            
-            counter++;
-        }
-    });
-  }, [showPartLabels, config, hoveredPartIndex, selectedPartIndex]);
-
-  useEffect(() => {
-    if (controlsRef.current) { controlsRef.current.autoRotate = isAutoRotating; }
-  }, [isAutoRotating]);
-
-  useEffect(() => {
-      if (!sceneRef.current) return;
-      setIsLoading(true);
-      const scene = sceneRef.current;
-      
-      const disposeGroup = (g: THREE.Group) => {
-          g.traverse((child) => {
-             if (child instanceof THREE.Mesh) {
-                 if (child.geometry) child.geometry.dispose();
-                 if (child.material) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach((m: THREE.Material) => { 
-                            if (m instanceof THREE.SpriteMaterial) {
-                                m.map?.dispose();
-                            }
-                            m.dispose(); 
-                        });
-                    } else {
-                        if (child.material instanceof THREE.SpriteMaterial) {
-                             child.material.map?.dispose();
-                        }
-                        child.material.dispose();
-                    }
-                 }
-             }
-          });
-          scene.remove(g);
-      };
-
-      if (prevGroupRef.current) {
-          disposeGroup(prevGroupRef.current);
-          prevGroupRef.current = null;
-      }
-      
-      if (transitionFrameRef.current) {
-          cancelAnimationFrame(transitionFrameRef.current);
-          transitionFrameRef.current = 0;
-      }
-      
-      const doorTypeChanged = prevConfigRef.current ? prevConfigRef.current.doorType !== config.doorType : false;
-      const widthChanged = prevConfigRef.current ? prevConfigRef.current.width !== config.width : false;
-      const heightChanged = prevConfigRef.current ? prevConfigRef.current.height !== config.height : false;
-      const backStyleChanged = prevConfigRef.current ? prevConfigRef.current.backStyle !== config.backStyle : false;
-      const sinkBaseTypeChanged = prevConfigRef.current ? prevConfigRef.current.sinkBaseType !== config.sinkBaseType : false;
-      const typeIIStyleChanged = prevConfigRef.current ? prevConfigRef.current.typeIIStyle !== config.typeIIStyle : false;
-      const cupboardChanged = prevConfigRef.current ? (prevConfigRef.current.cupboardType !== config.cupboardType || prevConfigRef.current.cupboardWidth !== config.cupboardWidth || prevConfigRef.current.cupboardDepth !== config.cupboardDepth) : false;
-      const cupboardLayoutChanged = prevConfigRef.current ? prevConfigRef.current.cupboardLayout !== config.cupboardLayout : false;
-      const isStructuralChange = doorTypeChanged || widthChanged || heightChanged || backStyleChanged || sinkBaseTypeChanged || typeIIStyleChanged || cupboardChanged || cupboardLayoutChanged;
-      const isInitialSelection = prevConfigRef.current?.doorType === 'unselected' && config.doorType !== 'unselected';
-
-      prevConfigRef.current = config;
-      
-      const onRenderComplete = (group: THREE.Group) => {
-          finalizeMaterials(group);
-
-          // Calculate bounding box and set new orbit target
-          if (controlsRef.current) {
-              const box = new THREE.Box3().setFromObject(group);
-              const center = box.getCenter(new THREE.Vector3());
-              const size = box.getSize(new THREE.Vector3());
-              // Set pivot to the center of the model's floor plane, with Y at half height for better UX
-              controlsRef.current.target.set(center.x, size.y / 2, center.z);
-              controlsRef.current.update();
-          }
-
-          // Hide loader after a short delay
-          setTimeout(() => setIsLoading(false), 300);
-      };
-
-      const animateFade = (group: THREE.Group, startOpacity: number, endOpacity: number, onComplete: () => void) => {
-          let opacity = startOpacity;
-          const increment = 0.011; 
-          const direction = endOpacity > startOpacity ? 1 : -1;
-
-          group.traverse((child) => {
-              if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
-                  const setupMat = (mat: THREE.Material) => { mat.transparent = true; mat.depthWrite = false; };
-                  if (Array.isArray(child.material)) { child.material.forEach(setupMat); } 
-                  else if (child.material) { setupMat(child.material); }
-              }
-          });
-
-          const animationLoop = () => {
-              opacity += increment * direction;
-              const isFinished = direction === 1 ? opacity >= endOpacity : opacity <= endOpacity;
-              if (isFinished) opacity = endOpacity;
-
-              group.traverse((child) => {
-                  if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
-                      const setOp = (m: THREE.Material) => { m.opacity = opacity; };
-                      if (Array.isArray(child.material)) { child.material.forEach(setOp); } 
-                      else if (child.material) { setOp(child.material); }
-                  }
-              });
-
-              if (isFinished) {
-                  transitionFrameRef.current = 0;
-                  onComplete();
-              } else {
-                  transitionFrameRef.current = requestAnimationFrame(animationLoop);
-              }
-          };
-          transitionFrameRef.current = requestAnimationFrame(animationLoop);
-      };
-      
-      const finalizeMaterials = (group: THREE.Group) => {
-          const baseScaleX = config.sinkPosition === 'right' ? -1 : 1;
-          group.scale.set(baseScaleX, 1, 1);
-          group.traverse((child) => {
-              if (child instanceof THREE.Mesh && child.material !== baseMaterials.glass && !child.userData.isWall) {
-                  const finalMat = (m: THREE.Material) => { m.transparent = false; m.opacity = 1; m.depthWrite = true; m.needsUpdate = true; };
-                  if (Array.isArray(child.material)) { child.material.forEach(finalMat); } 
-                  else if (child.material) { finalMat(child.material); }
-              }
-          });
-      };
-      
-      if (config.doorType === 'unselected') {
-          if (groupRef.current) { disposeGroup(groupRef.current); groupRef.current = null; }
-          setIsLoading(false);
-          return; 
+      // Clear old kitchen
+      while(groupRef.current.children.length > 0){ 
+          groupRef.current.remove(groupRef.current.children[0]); 
       }
 
-      if (isStructuralChange) {
-          const oldGroup = groupRef.current;
-          groupRef.current = null;
-          if (oldGroup) { disposeGroup(oldGroup); }
-          
-          const newGroup = createKitchenGroup(config);
-          scene.add(newGroup);
-          groupRef.current = newGroup;
-          
-          if (isInitialSelection) {
-            animateFade(newGroup, 0.0, 1.0, () => onRenderComplete(newGroup));
-          } else {
-            onRenderComplete(newGroup);
-          }
-          
-      } else { 
-          const newGroup = createKitchenGroup(config);
-          const baseScaleX = config.sinkPosition === 'right' ? -1 : 1;
-          newGroup.scale.set(baseScaleX * 1.0005, 1.0005, 1.0005);
-          scene.add(newGroup);
-          
-          const oldGroup = groupRef.current;
-          prevGroupRef.current = oldGroup; 
-          groupRef.current = newGroup;
-          
-          animateFade(newGroup, 0.0, 1.0, () => {
-              onRenderComplete(newGroup);
-              if (prevGroupRef.current) { 
-                  disposeGroup(prevGroupRef.current);
-                  prevGroupRef.current = null;
-              }
-          });
-      }
-  }, [visualConfigStr, colors, baseMaterials, customModelUrl, modelLibrary]);
+      const kitchen = createKitchenGroup(config);
+      groupRef.current.add(kitchen);
 
-  const showControls = config.doorType !== 'unselected';
-  
+  }, [config, colors, createKitchenGroup]); // Re-run when config changes
+
+  const floorOptions = [
+      { id: 'oak', name: 'オーク', url: 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg' },
+      { id: 'tile', name: 'タイル', url: 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tile.jpg' },
+      { id: 'stone', name: 'ストーン', url: 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/stone.jpg' },
+      { id: 'herringbone', name: 'ヘリンボーン', url: 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg' },
+      { id: 'tile-black', name: 'タイル(黒)', url: 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg' },
+      { id: 'none', name: '床なし', url: '' },
+  ] as const;
+
   return (
-    <div 
-        className="relative w-full h-full bg-gray-200 cursor-move" 
-        ref={mountRef}
-        onMouseMove={handlePointerMove}
-        onClick={handleClick}
-    >
+    <div className="relative w-full h-full bg-gray-100 overflow-hidden" ref={mountRef}>
       {isLoading && <LoadingIndicator />}
-      {showControls && (
-        <>
-          <div className="hidden lg:block absolute top-4 left-4 text-black text-xs p-4 rounded-lg bg-white/70 backdrop-blur-sm shadow-md w-64 pointer-events-none z-10">
-              <div className="font-bold text-sm mb-2 border-b border-gray-400/50 pb-1">{getOptionName(doorTypes, config.doorType)}</div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <span className="font-semibold text-gray-600">サイズ:</span>
-                <span className="text-right">W{config.width} / H{config.height}</span>
-                <span className="font-semibold text-gray-600">カウンター:</span>
-                <span className="text-right truncate">{colors.find(c=>c.id === config.counterColor)?.name}</span>
-                <span className="font-semibold text-gray-600">扉カラー:</span>
-                <span className="text-right truncate">{colors.find(c=>c.id === config.color)?.name}</span>
-                <span className="font-semibold text-gray-600">シンク位置:</span>
-                <span className="text-right">{config.sinkPosition === 'left' ? '左' : '右'}</span>
-              </div>
-          </div>
-          <div className="absolute bottom-4 left-4 flex-col gap-2 z-10 flex" onClick={e => e.stopPropagation()}>
-              <div className="hidden lg:flex flex-col gap-2 mb-2">
-                <span className="text-[10px] font-bold text-gray-500 bg-white/50 px-2 rounded w-fit">ADD SCENE</span>
-                <button onClick={(e) => { e.stopPropagation(); setSceneOption(prev => prev === 'dining2' ? 'none' : 'dining2'); }}
-                      className={`px-2 py-1 text-xs rounded shadow-sm transition-all ${sceneOption === 'dining2' ? 'bg-blue-600 text-white' : 'bg-white/80 text-gray-700 hover:bg-white'}`} >
-                    Dining Set
-                  </button>
-              </div>
-              <span className="text-[10px] font-bold text-gray-500 bg-white/50 px-2 rounded w-fit self-start">Scene</span>
-              <div className="flex gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('oak'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg)', filter: 'brightness(0.7)'}} title="Oak Floor"></button>
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tile.jpg)'}} title="Tile"></button>
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('stone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/stone.jpg)'}} title="Stone"></button>
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('herringbone'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/herinborn.jpg)', filter: 'brightness(0.7)'}} title="Herringbone"></button>
-                  <button onClick={(e) => { e.stopPropagation(); setFloorOption('tile-black'); }} className="w-6 h-6 lg:w-8 lg:h-8 rounded overflow-hidden border border-gray-300 shadow-sm hover:scale-105 transition-transform bg-cover" style={{backgroundImage: 'url(http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/tileblack.jpg)'}} title="Black Tile"></button>
-              </div>
-          </div>
-        </>
-      )}
+      
+      {/* Bottom Left Controls Overlay (Floor Toggle) */}
+      <div className="absolute bottom-4 left-4 z-10 flex gap-2 p-2 bg-white/30 backdrop-blur-sm rounded-full">
+          {floorOptions.map((opt) => (
+              <button
+                  key={opt.id}
+                  onClick={() => setFloorOption(opt.id)}
+                  className={`relative w-10 h-10 rounded-full border-2 overflow-hidden transition-all hover:scale-110 ${floorOption === opt.id ? 'border-[#8b8070] scale-110 shadow-md' : 'border-white/50 opacity-80 hover:opacity-100'}`}
+                  title={opt.name}
+              >
+                  {opt.id === 'none' ? (
+                      <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                          <span className="block w-2/3 h-0.5 bg-gray-500 transform -rotate-45"></span>
+                      </div>
+                  ) : (
+                      <img 
+                          src={`https://images.weserv.nl/?url=${encodeURIComponent(opt.url.replace(/^https?:\/\//, ''))}&w=100&output=webp`} 
+                          alt={opt.name} 
+                          className="w-full h-full object-cover" 
+                      />
+                  )}
+              </button>
+          ))}
+      </div>
+
     </div>
   );
 });

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { SavedDoor, DoorOption, DoorTypeId, FrameTypeId, ColorOption, HandleId, GlassStyleId, LockId, ProjectInfo, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, StorageOptionId, KitchenOptionId, CupboardTypeId } from '../types';
+import { SavedDoor, DoorOption, DoorTypeId, FrameTypeId, ColorOption, HandleId, GlassStyleId, LockId, ProjectInfo, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, StorageOptionId, KitchenOptionId, CupboardTypeId, CupboardStorageTypeId } from '../types';
 import PrintDoorPreview from './PrintDoorPreview';
 import { getOptionName, getProxiedImageUrl } from '../utils';
 
@@ -27,6 +27,7 @@ interface Props {
     storageOptions: DoorOption<StorageOptionId>[];
     kitchenOptions: DoorOption<KitchenOptionId>[];
     cupboardTypes: DoorOption<CupboardTypeId>[];
+    cupboardStorageTypes: DoorOption<CupboardStorageTypeId>[];
     cupboardPrices: any;
     cupboardDoorPrices: any;
     cupboardCounterPrices: any;
@@ -220,6 +221,12 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                 cupboardText = `${cType ? cType.name : type} W${width} / D${depth}`;
                 if (type === 'mix') {
                     cupboardText += ` / ${door.config.cupboardLayout === 'left' ? '左配置' : '右配置'}`;
+                }
+                if (type === 'tall') {
+                  const storageType = findOpt(settings.cupboardStorageTypes, door.config.cupboardStorageType);
+                  if (storageType) {
+                    cupboardText += ` / ${storageType.name}`;
+                  }
                 }
             } else if (door.config.cupboardType !== 'none') {
                  const cType = findOpt(settings.cupboardTypes, door.config.cupboardType);
@@ -555,6 +562,12 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                      const layoutStr = config.cupboardLayout === 'left' ? '左 (L)' : '右 (R)';
                      specText += ` / 配置: ${layoutStr}`;
                  }
+                 if (type === 'tall') {
+                    const storageType = settings.cupboardStorageTypes?.find(t => t.id === config.cupboardStorageType);
+                    if (storageType) {
+                        specText += ` / ${storageType.name}`;
+                    }
+                }
                  
                  items.push({ name: 'カップボード一式', spec: specText, price: cupboardTotal });
              }

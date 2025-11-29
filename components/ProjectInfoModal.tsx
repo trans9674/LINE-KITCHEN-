@@ -9,11 +9,10 @@ interface ProjectInfoModalProps {
   onComplete: (info: ProjectInfo) => void;
   onClose: () => void;
   shippingRates: Record<string, number>;
-  onGenerate: (type: 'presentation' | 'quotation' | 'drawing') => void;
   onAdminClick: () => void;
 }
 
-const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({ isOpen, initialInfo, onComplete, onClose, shippingRates, onGenerate, onAdminClick }) => {
+const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({ isOpen, initialInfo, onComplete, onClose, shippingRates, onAdminClick }) => {
   const [info, setInfo] = useState<ProjectInfo>(initialInfo);
   const [visible, setVisible] = useState(false);
 
@@ -138,42 +137,7 @@ const ProjectInfoModal: React.FC<ProjectInfoModalProps> = ({ isOpen, initialInfo
             </div>
             </form>
             
-            <div>
-                <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">書類出力</h3>
-                <div className="grid grid-cols-1 gap-3">
-                    <button 
-                        type="button"
-                        onClick={() => onGenerate('presentation')}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow transition-colors flex items-center justify-center gap-2"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        プレゼン出力
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => onGenerate('quotation')}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow transition-colors flex items-center justify-center gap-2"
-                    >
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        見積もり出力
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => onGenerate('drawing')}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-xl shadow transition-colors flex items-center justify-center gap-2"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        詳細図出力
-                    </button>
-                </div>
-            </div>
-            <div className="mt-6 pt-6 border-t border-gray-300">
+            <div className="mt-6 pt-6">
                 <button
                     type="button"
                     onClick={onAdminClick}

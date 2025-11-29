@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { SavedDoor, DoorOption, DoorTypeId, ColorId, HandleId, ColorOption, FrameTypeId, GlassStyleId, LockId, ProjectInfo } from '../types';
 import { generateDocument } from './PresentationGenerator';
@@ -111,6 +110,8 @@ const DoorList: React.FC<DoorListProps> = ({ doors, onDelete, onUpdate, doorType
         storageOptions: [],
         kitchenOptions: [],
         cupboardTypes: [],
+        // FIX: Add missing 'cupboardStorageTypes' property to the mocked settings object.
+        cupboardStorageTypes: [],
         cupboardPrices: {},
         cupboardDoorPrices: {},
         cupboardCounterPrices: {}
