@@ -283,10 +283,10 @@ const App: React.FC = () => {
       
       {appState !== 'splash' && (
         <>
-          <header className="bg-stone-50 shadow-md flex-shrink-0 z-20 relative">
+          <header className="absolute top-0 left-0 w-full z-20 bg-transparent shadow-none lg:relative lg:bg-stone-50 lg:shadow-md flex-shrink-0">
             <div className="container mx-auto px-4 py-4 lg:py-6 flex justify-between items-center">
               <div className="flex items-baseline gap-2 lg:gap-4 overflow-hidden">
-                <h1 className="text-xl lg:text-3xl font-light tracking-[0.2em] text-gray-800 whitespace-nowrap">
+                <h1 className="hidden lg:block lg:text-3xl font-light tracking-[0.2em] text-gray-800 whitespace-nowrap">
                   LINE KITCHEN
                 </h1>
                 <span className="hidden lg:inline-block text-lg font-light tracking-widest text-gray-500 pb-1 whitespace-nowrap">
@@ -296,9 +296,9 @@ const App: React.FC = () => {
                 )}
               </div>
                <div className="flex items-center gap-4">
-                <div className="lg:hidden text-right">
+                <div className="lg:hidden flex flex-row items-baseline gap-2">
                   <p className="text-xs text-gray-600">見積り価格(税別)</p>
-                  <p className="text-xl font-bold text-gray-800 -mt-1 tracking-tight">{totalPrice.toLocaleString()}円</p>
+                  <p className="text-base font-bold text-gray-800 tracking-tight">{totalPrice.toLocaleString()}円</p>
                 </div>
                 <button onClick={() => setShowProjectInfoModal(true)} className="hidden lg:flex items-center justify-center w-10 h-10 text-gray-600 bg-[#e7e4db] rounded-full hover:bg-[#dcd8cd] transition-colors">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -312,7 +312,7 @@ const App: React.FC = () => {
 
           <main className="flex-1 flex flex-col lg:flex-row-reverse relative">
               {appState === 'configuring' && (
-                <div className="w-full lg:w-[30%] flex-shrink-0 h-1/2 lg:h-full order-2 lg:order-1 animate-fade-in relative z-10">
+                <div className="w-full lg:w-[30%] flex-shrink-0 h-1/2 lg:h-full order-2 lg:order-1 animate-fade-in relative z-20">
                   <CustomizationPanel
                     config={config}
                     updateConfig={updateConfig}
@@ -327,7 +327,7 @@ const App: React.FC = () => {
                   />
                 </div>
               )}
-              <div className="flex-1 lg:w-[70%] w-full h-1/2 lg:h-full relative order-1 lg:order-2">
+              <div className="flex-1 lg:w-[70%] w-full h-1/2 lg:h-full relative order-1 lg:order-2 z-0">
                   <DoorPreview ref={doorPreviewRef} config={config} {...appSettings} />
               </div>
           </main>

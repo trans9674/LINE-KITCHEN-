@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -1727,6 +1726,9 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
+    // Detect mobile
+    const isMobile = window.innerWidth < 1024;
+
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
@@ -1745,18 +1747,38 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
     // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.copy(INITIAL_CAMERA_POSITION); 
+    if (isMobile) {
+        // Mobile position: Further back to fit kitchen in portrait view
+        camera.position.set(4.5, 3.5, 6.0); 
+    } else {
+        camera.position.copy(INITIAL_CAMERA_POSITION);
+    }
     cameraRef.current = camera;
 
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 1;
-    controls.maxDistance = 10;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going below floor
-    // Center the controls on the kitchen countertop height approximately
     controls.target.set(0, 0.5, 0);
+
+    if (isMobile) {
+        controls.enableZoom = false;
+        
+        // Lock vertical rotation (horizontal only)
+        // Calculate the polar angle of the initial position relative to target
+        const offset = new THREE.Vector3().copy(camera.position).sub(controls.target);
+        const radius = offset.length();
+        // Polar angle (phi) is angle from +Y axis (0 is up, PI is down)
+        // y = r * cos(phi) => cos(phi) = y / r => phi = acos(y/r)
+        const phi = Math.acos(offset.y / radius);
+        
+        controls.minPolarAngle = phi;
+        controls.maxPolarAngle = phi;
+    } else {
+        controls.minDistance = 1;
+        controls.maxDistance = 10;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    }
     controlsRef.current = controls;
 
     // Environment
@@ -1865,12 +1887,12 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
       {isLoading && <LoadingIndicator />}
       
       {/* Bottom Left Controls Overlay (Floor Toggle) */}
-      <div className="absolute bottom-4 left-4 z-10 flex gap-2 p-2 bg-white/30 backdrop-blur-sm rounded-full">
+      <div className="absolute bottom-4 left-4 z-10 flex gap-1.5 p-1.5 bg-white/30 backdrop-blur-sm rounded-full">
           {floorOptions.map((opt) => (
               <button
                   key={opt.id}
                   onClick={() => setFloorOption(opt.id)}
-                  className={`relative w-10 h-10 rounded-full border-2 overflow-hidden transition-all hover:scale-110 ${floorOption === opt.id ? 'border-[#8b8070] scale-110 shadow-md' : 'border-white/50 opacity-80 hover:opacity-100'}`}
+                  className={`relative w-7 h-7 rounded-full border-2 overflow-hidden transition-all hover:scale-110 ${floorOption === opt.id ? 'border-[#8b8070] scale-110 shadow-md' : 'border-white/50 opacity-80 hover:opacity-100'}`}
                   title={opt.name}
               >
                   {opt.id === 'none' ? (
