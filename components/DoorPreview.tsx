@@ -1528,7 +1528,9 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const frontPanelThick = 0.003;
               // Use kickPlateMaterial for the front visible panel instead of materials.cabinet
               const frontPanel = createCabinetMesh(w - 0.002, floatH, frontPanelThick, kickPlateMaterial);
-              const frontPanelZ = bodyZOffset + casingZOffset + (bodyDepth / 2) - (frontPanelThick / 2);
+              // Recess the kick plate by 1.5cm to avoid z-fighting with doors
+              const recess = 0.015;
+              const frontPanelZ = bodyZOffset + casingZOffset + (bodyDepth / 2) - (frontPanelThick / 2) - recess;
               frontPanel.position.set(x, floatH / 2, frontPanelZ);
               frontPanel.castShadow = true;
               frontPanel.receiveShadow = true;
@@ -1611,8 +1613,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                 true, 
                 'none', 
                 true, 
-                'worktop', 
-                'worktop', 
+                'cabinet', // Changed from 'worktop'
+                'cabinet', // Changed from 'worktop'
                 0, 
                 true, 
                 0, 
