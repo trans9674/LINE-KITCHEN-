@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId, CupboardStorageTypeId } from '../types';
 import { getProxiedImageUrl } from '../utils';
@@ -1311,7 +1310,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   })}
                                 </div>
                               </div>
-
                               {config.cupboardType === 'separate' && separateCupboardStorageTypes.length > 0 && (
                                 <div className="pt-4">
                                   <VisualOptionGrid 
@@ -1323,7 +1321,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   />
                                 </div>
                               )}
-
                               {config.cupboardType === 'floor' && floorCupboardStorageTypes.length > 0 && (
                                 <div className="pt-4">
                                   <VisualOptionGrid 
@@ -1335,7 +1332,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   />
                                 </div>
                               )}
-                              
                               {config.cupboardType === 'mix' && mixCupboardStorageTypes.length > 0 && (
                                 <div className="pt-4">
                                   <VisualOptionGrid 
@@ -1347,7 +1343,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   />
                                 </div>
                               )}
-
                               {config.cupboardType === 'tall' && (
                                 <div className="pt-4">
                                   <VisualOptionGrid 
@@ -1397,7 +1392,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
         
         {/* Item Confirmation Modal */}
         {itemConfirmation.isOpen && itemConfirmation.item && (
-          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setItemConfirmation({ isOpen: false, item: null, onConfirm: null })}>
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setItemConfirmation({ isOpen: false, item: null, onConfirm: null })}>
             <div ref={cupboardPanelRef} className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <h3 className="text-sm font-bold text-gray-800 text-center mb-4">選択内容の確認</h3>
@@ -1437,7 +1432,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Cupboard 3D Confirmation Modal */}
         {cupboardConfirmation.isOpen && (
-          <div className="fixed inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardConfirmation({ isOpen: false, onConfirm: null })}>
+          <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardConfirmation({ isOpen: false, onConfirm: null })}>
             <div className="bg-white rounded-xl shadow-lg w-[70%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 text-center">
                 <h3 className="text-xl font-bold text-gray-800 mb-4">確認</h3>
@@ -1469,7 +1464,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Cupboard Detail Confirmation Modal */}
         {cupboardDetailConfirmationOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardDetailConfirmationOpen(false)}>
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardDetailConfirmationOpen(false)}>
                 <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
                     <div className="p-6">
                         <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
@@ -1532,7 +1527,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Equipment Confirmation Modal */}
         {equipmentConfirmationOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEquipmentConfirmationOpen(false)}>
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEquipmentConfirmationOpen(false)}>
                 <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                     <div className="p-6 overflow-y-auto">
                         <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
@@ -1581,7 +1576,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Color Confirmation Modal */}
         {colorConfirmationOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setColorConfirmationOpen(false)}>
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setColorConfirmationOpen(false)}>
                 <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col" onClick={e => e.stopPropagation()}>
                     <div className="p-6">
                         <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
@@ -1623,7 +1618,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
         
         {/* Other Options Confirmation Modal */}
         {otherConfirmationOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setOtherConfirmationOpen(false)}>
+            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setOtherConfirmationOpen(false)}>
                 <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
                     <div className="p-6 overflow-y-auto">
                         <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
@@ -1669,7 +1664,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Heating Warning Modal */}
         {heatingWarningOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setHeatingWarningOpen(false)}>
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setHeatingWarningOpen(false)}>
             <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -1693,7 +1688,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
         {/* Dishwasher Warning Modal */}
         {dishwasherWarningOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setDishwasherWarningOpen(false)}>
+          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setDishwasherWarningOpen(false)}>
             <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
               <div className="p-8 text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -1713,39 +1708,6 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
               </div>
             </div>
           </div>
-        )}
-
-        {/* Kitchen Panel Confirmation Modal */}
-        {kitchenPanelConfirmation.isOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setKitchenPanelConfirmation({ isOpen: false, message: '', onConfirm: null })}>
-                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="p-8 text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-blue-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <h3 className="text-lg font-bold text-gray-800 mb-2">確認</h3>
-                        <p className="text-gray-600 text-sm font-bold">
-                            {kitchenPanelConfirmation.message}
-                        </p>
-                    </div>
-                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl">
-                        <button
-                            type="button"
-                            onClick={() => setKitchenPanelConfirmation({ isOpen: false, message: '', onConfirm: null })}
-                            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                        >
-                            キャンセル
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                kitchenPanelConfirmation.onConfirm?.();
-                            }}
-                            className="px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors font-bold"
-                        >
-                            OK
-                        </button>
-                    </div>
-                </div>
-            </div>
         )}
     </div>
   );

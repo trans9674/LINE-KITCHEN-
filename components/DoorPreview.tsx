@@ -55,8 +55,6 @@ interface DoorPreviewProps {
 
 export interface DoorPreviewHandle {
   getScreenshot: () => string | null;
-  rotateCameraToCounter: () => void;
-  resetCamera: () => void;
 }
 
 const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, colors, doorTypes, customModelUrl, modelLibrary }, ref) => {
@@ -73,43 +71,15 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
   const [isLoading, setIsLoading] = useState(false);
   const [floorOption, setFloorOption] = useState<'none' | 'oak' | 'tile' | 'stone' | 'herringbone' | 'tile-black'>('oak');
 
-  const INITIAL_CAMERA_POSITION = useMemo(() => new THREE.Vector3(2.5, 2.0, 3.5), []);
-  const COUNTER_CAMERA_POSITION = useMemo(() => new THREE.Vector3(2.5, 2.0, -3.5), []);
-  const animationFrameId = useRef<number | null>(null);
-
-  const animateCameraTo = (targetPosition: THREE.Vector3) => {
-      if (animationFrameId.current) {
-          cancelAnimationFrame(animationFrameId.current);
+  const INITIAL_CAMERA_POSITION = useMemo(() => {
+      const isMobile = window.innerWidth < 1024;
+      if (isMobile) {
+          // Mobile: Position farther back and higher to fit everything above controls
+          // Increase distance significantly to show full kitchen above buttons
+          return new THREE.Vector3(5.0, 6.0, 7.5); 
       }
-
-      const camera = cameraRef.current;
-      const controls = controlsRef.current;
-      if (!camera || !controls) return;
-
-      const startPosition = camera.position.clone();
-      const duration = 3000; // 3 second animation
-      let startTime = 0;
-
-      const animate = (time: number) => {
-          if (startTime === 0) startTime = time;
-          const elapsedTime = time - startTime;
-          const progress = Math.min(elapsedTime / duration, 1);
-          
-          const easeProgress = 1 - Math.pow(1 - progress, 4); // Ease-out quart
-
-          camera.position.lerpVectors(startPosition, targetPosition, easeProgress);
-          controls.update();
-
-          if (progress < 1) {
-              animationFrameId.current = requestAnimationFrame(animate);
-          } else {
-              animationFrameId.current = null;
-          }
-      };
-
-      animationFrameId.current = requestAnimationFrame(animate);
-  };
-
+      return new THREE.Vector3(2.5, 2.0, 3.5);
+  }, []);
 
   useImperativeHandle(ref, () => ({
     getScreenshot: () => {
@@ -118,12 +88,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
         return rendererRef.current.domElement.toDataURL('image/png');
       }
       return null;
-    },
-    rotateCameraToCounter: () => {
-        animateCameraTo(COUNTER_CAMERA_POSITION);
-    },
-    resetCamera: () => {
-        animateCameraTo(INITIAL_CAMERA_POSITION);
     }
   }));
 
@@ -277,6 +241,9 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           blackWorktop: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }),
       };
       
+      // Separate material for kick plate (toe kick)
+      const kickPlateMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.1 });
+
       const rangeHoodId = currentConfig.rangeHood;
       const isSilver = rangeHoodId.endsWith('-si') || rangeHoodId.endsWith('s5680') || rangeHoodId.endsWith('901vsi') || rangeHoodId.endsWith('s4');
       const isBlack = rangeHoodId.endsWith('-bk') || rangeHoodId.endsWith('tb');
@@ -435,10 +402,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                }
           }
           uvs.needsUpdate = true;
-          const mesh = new THREE.Mesh(geo, material);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          return mesh;
+          return new THREE.Mesh(geo, material);
       };
 
       const createCupboardBlock = (type: CupboardTypeId, widthCm: number, depthCm: number) => {
@@ -463,17 +427,16 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           ) => {
              const uGroup = new THREE.Group();
              uGroup.position.set(0, y, 0);
-             const kickMat = new THREE.MeshStandardMaterial({color: 0x111111});
 
              const panelThick = 0.02;
-             const useBlackInnerPanel = type === 'tall';
-
-             const leftPanelMaterial = (innerSide === 'left' && useBlackInnerPanel) ? materials.blackWorktop : materials.cabinet;
+             // Always use cabinet material for side panels as per request
+             const leftPanelMaterial = materials.cabinet;
              const leftPanel = createCabinetMesh(panelThick, uh, ud, leftPanelMaterial);
              leftPanel.position.set(-uw/2 + panelThick/2, 0, 0);
              leftPanel.receiveShadow = true; uGroup.add(leftPanel);
              
-             const rightPanelMaterial = (innerSide === 'right' && useBlackInnerPanel) ? materials.blackWorktop : materials.cabinet;
+             // Always use cabinet material for side panels as per request
+             const rightPanelMaterial = materials.cabinet;
              const rightPanel = createCabinetMesh(panelThick, uh, ud, rightPanelMaterial);
              rightPanel.position.set(uw/2 - panelThick/2, 0, 0);
              rightPanel.receiveShadow = true; uGroup.add(rightPanel);
@@ -526,7 +489,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                 
                 if (kickW > 0.01) {
                     const kickD = ud - 0.05;
-                    const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(kickW, toeKickH, kickD), kickMat);
+                    // Use kickPlateMaterial here for the backing
+                    const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(kickW, toeKickH, kickD), kickPlateMaterial);
                     let kickZ = -0.025;
                     if (type === 'tall' || type === 'mix') {
                         kickZ += 0.01;
@@ -535,7 +499,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                     uGroup.add(kickMesh);
 
                     const frontPanelThick = 0.003;
-                    const frontPanel = createCabinetMesh(kickW, toeKickH, frontPanelThick, kickMat);
+                    // Use kickPlateMaterial for the front visible panel instead of materials.cabinet
+                    const frontPanel = createCabinetMesh(kickW, toeKickH, frontPanelThick, kickPlateMaterial);
                     const frontPanelZ = ud/2 - frontPanelThick/2;
                     frontPanel.position.set(kickX, bottomY + toeKickH/2, frontPanelZ);
                     uGroup.add(frontPanel);
@@ -605,7 +570,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  const channelH = 0.02; 
                  
                  const kickD = ud - 0.05;
-                 const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), kickMat);
+                 // Use kickPlateMaterial here for the backing
+                 const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), kickPlateMaterial);
                  let kickZ = -0.025;
                  if (type === 'tall' || type === 'mix') {
                      kickZ += 0.01;
@@ -614,7 +580,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  uGroup.add(kickMesh);
 
                  const frontPanelThick = 0.003;
-                 const frontPanel = createCabinetMesh(innerW, toeKickH, frontPanelThick, kickMat);
+                 // Use kickPlateMaterial for the front visible panel instead of materials.cabinet
+                 const frontPanel = createCabinetMesh(innerW, toeKickH, frontPanelThick, kickPlateMaterial);
                  const frontPanelZ = ud/2 - frontPanelThick/2;
                  frontPanel.position.set(0, bottomY + toeKickH/2, frontPanelZ);
                  frontPanel.castShadow = true;
@@ -718,7 +685,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const unit = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(unit);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
-              top.position.y = unitH + topT/2;
+              top.position.y = unitH + topT/2; top.receiveShadow = true;
               group.add(top);
 
           } else if (type === 'separate') {
@@ -726,7 +693,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const base = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(base);
               const top = createUVMappedBox(w, topT, d, materials.worktop);
-              top.position.y = unitH + topT/2;
+              top.position.y = unitH + topT/2; top.receiveShadow = true;
               group.add(top);
               
               const upperH = 0.7;
@@ -778,6 +745,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                                   const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, shelfDepth, materials.blackWorktop);
                                   shelf.position.y = shelfH_m - shelfThickness / 2;
                                   shelf.position.z = -panelThick / 2; // Move shelf back
+                                  shelf.receiveShadow = true;
+                                  shelf.castShadow = true;
                                   group.add(shelf);
                                   
                                   const panel = createCabinetMesh(counterW - 0.004, shelfThickness, panelThick, materials.cabinet);
@@ -788,6 +757,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                               } else {
                                   const shelf = createUVMappedBox(counterW - 0.004, shelfThickness, d, materials.blackWorktop);
                                   shelf.position.y = shelfH_m - shelfThickness / 2;
+                                  shelf.receiveShadow = true;
+                                  shelf.castShadow = true;
                                   group.add(shelf);
                               }
                           }
@@ -822,7 +793,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                   const base = createUnit(sepW, unitH, d, (unitH)/2, 'base', sepInnerSide, specialMixModeForBase);
                   sepGroup.add(base);
                   const top = createUVMappedBox(sepW, topT, d, materials.worktop);
-                  top.position.y = unitH + topT/2;
+                  top.position.y = unitH + topT/2; top.receiveShadow = true;
                   sepGroup.add(top);
 
                   const upperH = 0.7;
@@ -856,7 +827,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           hoodType: 'center' | 'side' = 'center', 
           doubleSidePanel: boolean = false, 
           extraOverhang: number = 0, 
-          forceBackPanel: boolean = false,
+          forceBackPanel: boolean = false, 
           backStyle: BackStyleId | 'none' = 'none', 
           forceLeftPanel: boolean = false,
           leftPanelMaterial: 'worktop' | 'cabinet' = 'worktop',
@@ -971,7 +942,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  
                  const mat = materials.cabinet; const thick = 0.02;
                  const apron = createCabinetMesh(displayW, Math.max(0.001, finalApronH), thick, mat);
-                 apron.position.set(0, apronY + typeITopOffset, localD/2 - thick/2); apron.receiveShadow = true; apron.castShadow = true; zoneGroup.add(apron);
+                 apron.position.set(0, apronY + typeITopOffset, localD/2 - thick/2); apron.receiveShadow = true; zoneGroup.add(apron);
 
                  const sideH = currentConfig.sinkBaseType === 'open' ? h + floatH : h;
                  const sideY = currentConfig.sinkBaseType === 'open' ? (h + floatH)/2 - floatH : h/2;
@@ -1046,8 +1017,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                 if (isSinkBaseOpen) {
                     const mat = materials.cabinet;
-                    const sideH = h; // Cabinet height, not full height from floor
-                    const sideY = h / 2; // Position it within the cabinet block, not from the floor
+                    const sideH = h + floatH; // Full height from floor
+                    const sideY = sideH / 2 - floatH;
                     const sidePanel = createCabinetMesh(thick, sideH, localD, mat);
                     sidePanel.position.set(-displayW / 2 + thick / 2, sideY, 0);
                     zoneGroup.add(sidePanel);
@@ -1274,7 +1245,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           if (hasWaterfall) { // Left panel
               const sideH = floatH + h + revealH;
               const sideD = (wallSide === 'left') ? bodyDepth : d;
-              const sideZ = (wallSide === 'left') ? bodyZOffset : 0;
+              // FIX: Added casingZOffset to align side panel with counter and body
+              const sideZ = ((wallSide === 'left') ? bodyZOffset : 0) + casingZOffset;
               const sideMesh = createCabinetMesh(panelThick, sideH, sideD, leftMat);
               sideMesh.position.set(-w / 2 + panelThick / 2, sideH / 2, sideZ);
               sideMesh.receiveShadow = true; sideMesh.castShadow = true; blockGroup.add(sideMesh);
@@ -1282,10 +1254,33 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           if (hasRightPanel) { // Right panel
               const sideH = floatH + h + revealH;
               const sideD = (wallSide === 'right') ? bodyDepth : d;
-              const sideZ = (wallSide === 'right') ? bodyZOffset : 0;
+              // FIX: Added casingZOffset to align side panel with counter and body
+              const sideZ = ((wallSide === 'right') ? bodyZOffset : 0) + casingZOffset;
               const sideMesh = createCabinetMesh(panelThick, sideH, sideD, rightMat);
               sideMesh.position.set(w / 2 - panelThick / 2, sideH / 2, sideZ);
               sideMesh.receiveShadow = true; sideMesh.castShadow = true; blockGroup.add(sideMesh);
+          }
+
+          const thinPanelThick = 0.001;
+          const thinPanelHeight = floatH + h + revealH + topH - 0.002; // Shrink 2mm height
+          const thinPanelDepth = d + overhangFront + extraOverhang - 0.002; // Shrink 2mm depth
+          const thinPanelY = thinPanelHeight / 2;
+          const thinPanelZ = flushOffsetZ + casingZOffset;
+
+          if (!hasWaterfall) {
+            const leftThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, leftMat);
+            leftThinPanel.position.set(-w / 2 - thinPanelThick / 2, thinPanelY, thinPanelZ);
+            leftThinPanel.castShadow = true;
+            leftThinPanel.receiveShadow = true;
+            blockGroup.add(leftThinPanel);
+          }
+
+          if (!hasRightPanel) {
+            const rightThinPanel = createCabinetMesh(thinPanelThick, thinPanelHeight, thinPanelDepth, rightMat);
+            rightThinPanel.position.set(w / 2 + thinPanelThick / 2, thinPanelY, thinPanelZ);
+            rightThinPanel.castShadow = true;
+            rightThinPanel.receiveShadow = true;
+            blockGroup.add(rightThinPanel);
           }
 
           if (forceBackPanel || isCounterStyle) {
@@ -1304,13 +1299,13 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           }
 
           if ((hasBackStorage || isCounterStyle) && !forceBackPanel) {
-               const fPanelTopY = totalH - topH;
-               const fPanelH = fPanelTopY - 0.10;
-               const fPanelY = 0.10 + fPanelH / 2;
-               const frontFaceZ = bodyZOffset + bodyDepth/2;
-               const fPanelZ = frontFaceZ - 0.02 + casingZOffset;
+              const fPanelTopY = totalH - topH;
+              const fPanelH = fPanelTopY - 0.10;
+              const fPanelY = 0.10 + fPanelH / 2;
+              const frontFaceZ = bodyZOffset + bodyDepth/2;
+              const fPanelZ = frontFaceZ - 0.02 + casingZOffset;
 
-               const railSegments: {x: number, w: number}[] = [];
+              const railSegments: {x: number, w: number}[] = [];
               
               if (isTypeI) {
                    railSegments.push({ x: startX + availableW / 2, w: availableW });
@@ -1368,7 +1363,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                    const blackPanelYCenter = (blackPanelTopY + blackPanelBottomY) / 2;
                    
                    const bPanel = new THREE.Mesh(new THREE.BoxGeometry(segW, blackPanelH, 0.001), materials.rail);
-                   bPanel.position.set(startXBack + segW * i + segW / 2, -d / 2 + backPanelThick + 0.0005 + casingZOffset - 0.008); // Push back to avoid flicker
+                   bPanel.position.set(startXBack + segW * i + segW / 2, blackPanelYCenter, -d / 2 + backPanelThick + 0.0005 + casingZOffset - 0.008); // Push back to avoid flicker
                    blockGroup.add(bPanel);
                }
           }
@@ -1390,10 +1385,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               }
               uvs.needsUpdate = true;
               const topMesh = new THREE.Mesh(geo, materials.worktop);
-              topMesh.position.set(0, topY, topCenterZ);
-              topMesh.receiveShadow = true;
-              topMesh.castShadow = true;
-              blockGroup.add(topMesh);
+              topMesh.position.set(0, topY, topCenterZ); topMesh.receiveShadow = true; blockGroup.add(topMesh);
           } else {
               const sinkW = 0.76; const sinkD = 0.48; const sinkRealCenter = sinkZoneX; const sinkZ = accessoryZ;
               const createTopPiece = (pieceW: number, pieceD: number, x: number, z: number) => {
@@ -1413,10 +1405,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  uvs.needsUpdate = true;
                  
                  const m = new THREE.Mesh(geo, materials.worktop);
-                 m.position.set(x, topY, z);
-                 m.receiveShadow = true;
-                 m.castShadow = true;
-                 blockGroup.add(m);
+                 m.position.set(x, topY, z); m.receiveShadow = true; blockGroup.add(m);
               };
               const minX = -topW / 2; const maxX = topW / 2; const minZ = topCenterZ - topD / 2; const maxZ = topCenterZ + topD / 2;
               const sinkMinX = sinkRealCenter - sinkW / 2; const sinkMaxX = sinkRealCenter + sinkW / 2;
@@ -1537,7 +1526,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               blockGroup.add(k);
 
               const frontPanelThick = 0.003;
-              const frontPanel = createCabinetMesh(w - 0.002, floatH, frontPanelThick, kickMat);
+              // Use kickPlateMaterial for the front visible panel instead of materials.cabinet
+              const frontPanel = createCabinetMesh(w - 0.002, floatH, frontPanelThick, kickPlateMaterial);
               const frontPanelZ = bodyZOffset + casingZOffset + (bodyDepth / 2) - (frontPanelThick / 2);
               frontPanel.position.set(x, floatH / 2, frontPanelZ);
               frontPanel.castShadow = true;
@@ -1545,33 +1535,41 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               blockGroup.add(frontPanel);
           };
 
-            if (fullWidthKickStrip && !isSinkBaseOpen) {
-                addKickSegment(startX + availableW / 2, availableW);
-            } else {
-                if (isStoveOnly) {
-                    addKickSegment(stoveZoneX, stoveUnitW);
-                } else {
-                    if (hasSink && !isSinkBaseOpen) {
-                        addKickSegment(sinkZoneX, sinkUnitW);
-                    }
-                    if (hasDishwasher) {
+          if (fullWidthKickStrip && !isSinkBaseOpen) {
+             addKickSegment(startX + availableW/2, availableW);
+          } else {
+              if (isStoveOnly) {
+                  addKickSegment(stoveZoneX, stoveUnitW);
+              } else {
+                  if (hasSink) {
+                      if (!isSinkBaseOpen) {
+                          addKickSegment(sinkZoneX, sinkUnitW);
+                      }
+                  }
+                  if (hasDishwasher) {
+                    if (isSinkBaseOpen) {
+                      const kickWidth = (w - sinkUnitW) - (hasWaterfall ? panelThick: 0);
+                      const kickX = sinkZoneX + sinkUnitW/2 + kickWidth/2;
+                      addKickSegment(kickX, kickWidth, null, bodyZOffset + casingZOffset - 0.02);
+                    } else {
                         addKickSegment(dishwasherZoneX, dishwasherW);
                     }
-                    if (middleStorageW > 0.01) {
-                        addKickSegment(middleZoneX, middleStorageW);
-                    }
-                    if (hasStove) {
-                        addKickSegment(stoveZoneX, stoveUnitW);
-                    }
-                }
-            }
+                  }
+                  if (middleStorageW > 0.01 && !isSinkBaseOpen) {
+                      addKickSegment(middleZoneX, middleStorageW);
+                  }
+                  if (hasStove && !isSinkBaseOpen) {
+                      addKickSegment(stoveZoneX, stoveUnitW);
+                  }
+              }
+          }
 
           return blockGroup;
       };
 
       const width = currentConfig.width || 255; const height = currentConfig.height || 85; const depth = 65; 
       const wallH = 2.4; const wallThick = 0.1;
-      
+
       let effectiveIslandDepth = 90; 
       if (currentConfig.backStyle === 'counter') {
           effectiveIslandDepth = 75;
@@ -1613,8 +1611,8 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                 true, 
                 'none', 
                 true, 
-                'cabinet', 
-                'cabinet', 
+                'worktop', 
+                'worktop', 
                 0, 
                 true, 
                 0, 
@@ -1672,7 +1670,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const main = createCabinetBlock(mainWidthCm, iiDepth, height, true, false, false, 'center', 
                 true, // hasRightPanel (wall side for peninsula)
                 0, false, activeBackStyle, 
-                true, // hasLeftPanel (open side)
+                true, // forceLeftPanel (open side)
                 'worktop', // leftPanelMaterial
                 isPeninsula ? 'cabinet' : 'worktop', // rightPanelMaterial
                 0, false, -0.02, true,
@@ -1680,7 +1678,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               );
               main.position.z = mainZ; 
               
-              const back = createCabinetBlock(width, depth, height, false, true, showHood, 'center', true, 0, true, 'none', true, 'cabinet', 'cabinet', 0, true, 0, false, 'none');
+              const back = createCabinetBlock(width, depth, height, false, true, showHood, 'center', true, 0, true, 'none', true, 'worktop', 'worktop', 0, true, 0, false, 'none');
               back.rotation.y = Math.PI; back.position.z = 0.80;
               
               const anchorX = 0.92;
@@ -1726,9 +1724,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
-    // Detect mobile
-    const isMobile = window.innerWidth < 1024;
-
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
@@ -1736,49 +1731,38 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 0.8; // Changed from 1.0 to 0.8 for darker, richer colors
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe5e5e5);
+    scene.background = new THREE.Color(0xcccccc); // Changed from 0xe5e5e5 to 0xcccccc
     sceneRef.current = scene;
 
     // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    if (isMobile) {
-        // Mobile position: Further back to fit kitchen in portrait view
-        camera.position.set(4.5, 3.5, 6.0); 
-    } else {
-        camera.position.copy(INITIAL_CAMERA_POSITION);
-    }
+    camera.position.copy(INITIAL_CAMERA_POSITION); 
     cameraRef.current = camera;
 
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.target.set(0, 0.5, 0);
-
+    controls.minDistance = 1;
+    controls.maxDistance = 10;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going below floor
+    
+    // Center the controls on the kitchen countertop height approximately
+    // Adjust target for mobile to shift object upwards (by looking lower)
+    const isMobile = width < 1024;
     if (isMobile) {
-        controls.enableZoom = false;
-        
-        // Lock vertical rotation (horizontal only)
-        // Calculate the polar angle of the initial position relative to target
-        const offset = new THREE.Vector3().copy(camera.position).sub(controls.target);
-        const radius = offset.length();
-        // Polar angle (phi) is angle from +Y axis (0 is up, PI is down)
-        // y = r * cos(phi) => cos(phi) = y / r => phi = acos(y/r)
-        const phi = Math.acos(offset.y / radius);
-        
-        controls.minPolarAngle = phi;
-        controls.maxPolarAngle = phi;
+        // Move target down (negative Y) so object moves up in viewport
+        controls.target.set(0, -1.2, 0); 
     } else {
-        controls.minDistance = 1;
-        controls.maxDistance = 10;
-        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+        controls.target.set(0, 0.5, 0);
     }
+    
     controlsRef.current = controls;
 
     // Environment
@@ -1786,40 +1770,20 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); // Changed from 0.5 to 0.4
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); // Changed from 1.0 to 1.2
     dirLight.position.set(5, 10, 7);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.top = 4;
-    dirLight.shadow.camera.bottom = -2;
-    dirLight.shadow.camera.left = -4;
-    dirLight.shadow.camera.right = 4;
-    dirLight.shadow.camera.near = 1;
-    dirLight.shadow.camera.far = 20;
-    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.bias = -0.0001;
     scene.add(dirLight);
 
     // Floor
     const floorGeo = new THREE.PlaneGeometry(20, 20);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x777777, // Default to oak tint
-      roughness: 0.8,
-      metalness: 0
-    });
-
-    const oakUrl = 'http://25663cc9bda9549d.main.jp/aistudio/linekitchen/floortexture/oakfloor.jpg';
-    const initialTexture = loadTexture(oakUrl);
-    if (initialTexture) {
-      initialTexture.wrapS = THREE.RepeatWrapping;
-      initialTexture.wrapT = THREE.RepeatWrapping;
-      initialTexture.repeat.set(12.5, 12.5);
-      floorMat.map = initialTexture;
-    }
-
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 1, metalness: 0 }); // Changed from 0xd1d1d1 to 0x999999
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -1887,12 +1851,12 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
       {isLoading && <LoadingIndicator />}
       
       {/* Bottom Left Controls Overlay (Floor Toggle) */}
-      <div className="absolute bottom-4 left-4 z-10 flex gap-1.5 p-1.5 bg-white/30 backdrop-blur-sm rounded-full">
+      <div className="absolute bottom-4 left-4 z-10 flex gap-2 p-2 bg-white/30 backdrop-blur-sm rounded-full">
           {floorOptions.map((opt) => (
               <button
                   key={opt.id}
                   onClick={() => setFloorOption(opt.id)}
-                  className={`relative w-7 h-7 rounded-full border-2 overflow-hidden transition-all hover:scale-110 ${floorOption === opt.id ? 'border-[#8b8070] scale-110 shadow-md' : 'border-white/50 opacity-80 hover:opacity-100'}`}
+                  className={`relative w-7 h-7 lg:w-10 lg:h-10 rounded-full border-2 overflow-hidden transition-all hover:scale-110 ${floorOption === opt.id ? 'border-[#8b8070] scale-110 shadow-md' : 'border-white/50 opacity-80 hover:opacity-100'}`}
                   title={opt.name}
               >
                   {opt.id === 'none' ? (
