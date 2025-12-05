@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useMemo, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -1680,7 +1681,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               );
               main.position.z = mainZ; 
               
-              const back = createCabinetBlock(width, depth, height, false, true, showHood, 'center', true, 0, true, 'none', true, 'worktop', 'worktop', 0, true, 0, false, 'none');
+              const back = createCabinetBlock(width, depth, height, false, true, showHood, 'center', true, 0, true, 'none', true, 'cabinet', 'cabinet', 0, true, 0, false, 'none');
               back.rotation.y = Math.PI; back.position.z = 0.80;
               
               const anchorX = 0.92;
