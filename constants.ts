@@ -1,5 +1,5 @@
 // FIX: Added CupboardTypeId to the import list to resolve a type error.
-import { DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, StorageOptionId, KitchenOptionId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, DoorConfiguration, CupboardPriceMatrix, CupboardCounterPriceMatrix, CupboardDoorPriceMatrix, CupboardStorageTypeId, CupboardOptionPanelId, CupboardTypeId, ColorId } from './types';
+import { DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, StorageOptionId, KitchenOptionId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, DoorConfiguration, CupboardPriceMatrix, CupboardCounterPriceMatrix, CupboardDoorPriceMatrix, CupboardStorageTypeId, CupboardOptionPanelId, CupboardTypeId, ColorId, CupboardEndPanelId } from './types';
 
 export const TYPE_II_ISLAND_UPCHARGE = 80000;
 export const HANGING_CABINET_PRICE = 105000;
@@ -485,6 +485,11 @@ export const CUPBOARD_OPTION_PANELS: DoorOption<CupboardOptionPanelId>[] = [
   { id: 'one-side', name: '片側', price: 20000 },
 ];
 
+export const CUPBOARD_END_PANELS: DoorOption<CupboardEndPanelId>[] = [
+  { id: 'one-side', name: '片面', price: 0, swatchUrl: "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/katamenn.jpg" },
+  { id: 'both-sides', name: '両面', price: 20000, swatchUrl: "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/ryoumen.jpg" },
+];
+
 export const INITIAL_CONFIG: DoorConfiguration = {
   doorType: 'unselected',
   color: 'natural-white',
@@ -522,6 +527,10 @@ export const INITIAL_CONFIG: DoorConfiguration = {
   cupboardLayout: 'left',
   cupboardStorageType: 'opening',
   confirmedCupboard: null,
+  cupboardColorMode: 'same',
+  cupboardColor: 'natural-white',
+  cupboardCounterColor: 'stainless',
+  cupboardEndPanel: 'one-side',
 };
 
 export const SHIPPING_RATES: { [key: string]: number } = {

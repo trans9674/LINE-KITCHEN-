@@ -410,6 +410,58 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
           const group = new THREE.Group();
           if (type === 'none') return group;
 
+          const cupboardCabinetMaterial = baseMaterials.cabinet.clone();
+          const cupboardWorktopMaterial = baseMaterials.worktop.clone();
+
+          const cupboardDoorColorId = currentConfig.cupboardColorMode === 'separate' ? currentConfig.cupboardColor : currentConfig.color;
+          const cupboardCounterColorId = currentConfig.cupboardColorMode === 'separate' ? currentConfig.cupboardCounterColor : currentConfig.counterColor;
+          
+          const cupboardDoorColorInfo = colors.find(c => c.id === cupboardDoorColorId);
+          const cupboardCounterColorInfo = colors.find(c => c.id === cupboardCounterColorId);
+          
+          const exclusionListCupboard: ColorId[] = ['stainless', 'quartz-stone', 'natural-white', 'dark-beige', 'dark-gray'];
+
+          if (cupboardDoorColorInfo) {
+            const rawTexture = cupboardDoorColorInfo.textureUrl ? loadTexture(cupboardDoorColorInfo.textureUrl) : null;
+            const shouldScaleCupboardCabinet = cupboardDoorColorInfo.textureUrl && !exclusionListCupboard.includes(cupboardDoorColorId);
+            if (rawTexture) {
+                const texture = rawTexture.clone();
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                if(shouldScaleCupboardCabinet) { texture.repeat.set(1, 1); } else { texture.repeat.set(4, 4); }
+                cupboardCabinetMaterial.map = texture;
+                cupboardCabinetMaterial.color.set(0xffffff);
+            } else {
+                cupboardCabinetMaterial.map = null;
+                cupboardCabinetMaterial.color.set(cupboardDoorColorInfo.hex);
+            }
+            if (cupboardDoorColorInfo.category === 'wood') { cupboardCabinetMaterial.roughness = 0.7; cupboardCabinetMaterial.metalness = 0.0; }
+            else if (cupboardDoorColorInfo.category === 'stone') { cupboardCabinetMaterial.roughness = 0.5; cupboardCabinetMaterial.metalness = 0.1; }
+            else if (cupboardDoorColorInfo.category === 'metal') { cupboardCabinetMaterial.roughness = 0.2; cupboardCabinetMaterial.metalness = 0.8; }
+            else { cupboardCabinetMaterial.roughness = 0.4; cupboardCabinetMaterial.metalness = 0.1; }
+          }
+      
+          if (cupboardCounterColorInfo) {
+            const rawTex = cupboardCounterColorInfo.textureUrl ? loadTexture(cupboardCounterColorInfo.textureUrl) : null;
+            if (rawTex && cupboardCounterColorInfo.id !== 'stainless') {
+                const tex = rawTex.clone();
+                tex.colorSpace = THREE.SRGBColorSpace;
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.repeat.set(1, 1);
+                cupboardWorktopMaterial.map = tex;
+                cupboardWorktopMaterial.color.set(0xffffff);
+            } else {
+                cupboardWorktopMaterial.map = null;
+                cupboardWorktopMaterial.color.set(cupboardCounterColorInfo.hex);
+            }
+            if (cupboardCounterColorInfo.category === 'wood') { cupboardWorktopMaterial.roughness = 0.7; cupboardWorktopMaterial.metalness = 0.0; }
+            else if (cupboardCounterColorInfo.category === 'metal' || cupboardCounterColorInfo.id === 'stainless') { cupboardWorktopMaterial.roughness = 0.2; cupboardWorktopMaterial.metalness = 0.8; }
+            else if (cupboardCounterColorInfo.category === 'stone') { cupboardWorktopMaterial.roughness = 0.4; cupboardWorktopMaterial.metalness = 0.0; }
+            else { cupboardWorktopMaterial.roughness = 0.2; cupboardWorktopMaterial.metalness = 0.1; }
+          }
+
           const w = widthCm * 0.01;
           const d = 45 * 0.01; // Always 45cm for all parts of mix type
           const baseH = currentConfig.height * 0.01;
@@ -430,21 +482,19 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
              uGroup.position.set(0, y, 0);
 
              const panelThick = 0.02;
-             // Always use cabinet material for side panels as per request
-             const leftPanelMaterial = materials.cabinet;
+             const leftPanelMaterial = cupboardCabinetMaterial;
              const leftPanel = createCabinetMesh(panelThick, uh, ud, leftPanelMaterial);
              leftPanel.position.set(-uw/2 + panelThick/2, 0, 0);
              leftPanel.receiveShadow = true; uGroup.add(leftPanel);
              
-             // Always use cabinet material for side panels as per request
-             const rightPanelMaterial = materials.cabinet;
+             const rightPanelMaterial = cupboardCabinetMaterial;
              const rightPanel = createCabinetMesh(panelThick, uh, ud, rightPanelMaterial);
              rightPanel.position.set(uw/2 - panelThick/2, 0, 0);
              rightPanel.receiveShadow = true; uGroup.add(rightPanel);
              
              if (unitType !== 'wall' && unitType !== 'tall') {
                  const backPanelThick = 0.005;
-                 const backPanel = createCabinetMesh(uw, uh, backPanelThick, materials.cabinet);
+                 const backPanel = createCabinetMesh(uw, uh, backPanelThick, cupboardCabinetMaterial);
                  backPanel.position.set(0, 0, -ud/2 + backPanelThick/2 - 0.001);
                  backPanel.receiveShadow = true;
                  uGroup.add(backPanel);
@@ -523,7 +573,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                     // Top drawer and its rails are always present
                     const topPanelY = currentY + botDrawerH + midRailH;
-                    const topPanel = createCabinetMesh(dW, topDrawerH, doorThick, materials.cabinet);
+                    const topPanel = createCabinetMesh(dW, topDrawerH, doorThick, cupboardCabinetMaterial);
                     topPanel.position.set(modX, topPanelY + topDrawerH/2, ud/2 - doorThick/2);
                     topPanel.castShadow = true; topPanel.receiveShadow = true;
                     uGroup.add(topPanel);
@@ -540,7 +590,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                     
                     // Bottom drawer only for non-open modules
                     if (!isOpenModule) {
-                        const botPanel = createCabinetMesh(dW, botDrawerH, doorThick, materials.cabinet);
+                        const botPanel = createCabinetMesh(dW, botDrawerH, doorThick, cupboardCabinetMaterial);
                         botPanel.position.set(modX, currentY + botDrawerH/2, ud/2 - doorThick/2);
                         botPanel.castShadow = true; botPanel.receiveShadow = true;
                         uGroup.add(botPanel);
@@ -557,12 +607,12 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                      const gapX = 0.007;
                      const dW = moduleW - gapX;
                      
-                     const door = createCabinetMesh(dW, dH, doorThick, materials.cabinet);
+                     const door = createCabinetMesh(dW, dH, doorThick, cupboardCabinetMaterial);
                      door.position.set(modX, 0, ud/2 - doorThick/2);
                      door.castShadow = true; door.receiveShadow = true;
                      uGroup.add(door);
                  }
-                 const body = createCabinetMesh(innerW, uh, ud-doorThick, materials.cabinet);
+                 const body = createCabinetMesh(innerW, uh, ud-doorThick, cupboardCabinetMaterial);
                  body.position.set(0, 0, -doorThick/2);
                  uGroup.add(body);
 
@@ -571,7 +621,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  const channelH = 0.02; 
                  
                  const kickD = ud - 0.05;
-                 // Use kickPlateMaterial here for the backing
                  const kickMesh = new THREE.Mesh(new THREE.BoxGeometry(innerW, toeKickH, kickD), kickPlateMaterial);
                  let kickZ = -0.025;
                  if (type === 'tall' || type === 'mix') {
@@ -581,7 +630,6 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                  uGroup.add(kickMesh);
 
                  const frontPanelThick = 0.003;
-                 // Use kickPlateMaterial for the front visible panel instead of materials.cabinet
                  const frontPanel = createCabinetMesh(innerW, toeKickH, frontPanelThick, kickPlateMaterial);
                  const frontPanelZ = ud/2 - frontPanelThick/2;
                  frontPanel.position.set(0, bottomY + toeKickH/2, frontPanelZ);
@@ -603,7 +651,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                     const botDrawerH = (baseRemainingH * 0.7) + reduction;
 
                     // Create bottom panel
-                    const botPanel = createCabinetMesh(innerW, botDrawerH, doorThick, materials.cabinet);
+                    const botPanel = createCabinetMesh(innerW, botDrawerH, doorThick, cupboardCabinetMaterial);
                     botPanel.position.set(0, currentY + botDrawerH / 2, ud / 2 - doorThick / 2);
                     botPanel.castShadow = true; botPanel.receiveShadow = true;
                     uGroup.add(botPanel);
@@ -616,7 +664,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                     // Create top panel
                     const topPanelY = midChannelY + channelH;
-                    const topPanel = createCabinetMesh(innerW, topDrawerH, doorThick, materials.cabinet);
+                    const topPanel = createCabinetMesh(innerW, topDrawerH, doorThick, cupboardCabinetMaterial);
                     topPanel.position.set(0, topPanelY + topDrawerH / 2, ud / 2 - doorThick / 2);
                     topPanel.castShadow = true; topPanel.receiveShadow = true;
                     uGroup.add(topPanel);
@@ -637,7 +685,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                         const modX = startX + moduleWUpper / 2 + (moduleWUpper * m);
                         const gapX = 0.007;
                         const dW = moduleWUpper - gapX;
-                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, materials.cabinet);
+                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, cupboardCabinetMaterial);
                         udMesh.position.set(modX, upperDoorStartY + upperDoorH / 2, ud / 2 - doorThick / 2);
                         udMesh.castShadow = true; udMesh.receiveShadow = true;
                         uGroup.add(udMesh);
@@ -645,7 +693,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
 
                  } else { // Standard tall unit logic
                     const lowerDoorH = (baseH - 0.02) - toeKickH - channelH;
-                    const ld = createCabinetMesh(innerW, lowerDoorH, doorThick, materials.cabinet);
+                    const ld = createCabinetMesh(innerW, lowerDoorH, doorThick, cupboardCabinetMaterial);
                     ld.position.set(0, currentY + lowerDoorH/2, ud/2 - doorThick/2);
                     ld.castShadow = true; ld.receiveShadow = true;
                     uGroup.add(ld);
@@ -665,14 +713,14 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                         const dW = moduleWUpper - gapX;
                         
                         const udY = currentY + lowerDoorH + channelH;
-                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, materials.cabinet);
+                        const udMesh = createCabinetMesh(dW, upperDoorH, doorThick, cupboardCabinetMaterial);
                         udMesh.position.set(modX, udY + upperDoorH/2, ud/2 - doorThick/2);
                         udMesh.castShadow = true; udMesh.receiveShadow = true;
                         uGroup.add(udMesh);
                     }
                  }
                  
-                 const body = createCabinetMesh(innerW, uh, ud - doorThick, materials.cabinet);
+                 const body = createCabinetMesh(innerW, uh, ud - doorThick, cupboardCabinetMaterial);
                  body.position.set(0, 0, -doorThick/2);
                  body.receiveShadow = true;
                  uGroup.add(body);
@@ -685,7 +733,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const unitH = baseH - topT;
               const unit = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(unit);
-              const top = createUVMappedBox(w, topT, d, materials.worktop);
+              const top = createUVMappedBox(w, topT, d, cupboardWorktopMaterial);
               top.position.y = unitH + topT/2; top.receiveShadow = true;
               group.add(top);
 
@@ -693,7 +741,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
               const unitH = baseH - topT;
               const base = createUnit(w, unitH, d, (unitH)/2, 'base', 'none', 'none');
               group.add(base);
-              const top = createUVMappedBox(w, topT, d, materials.worktop);
+              const top = createUVMappedBox(w, topT, d, cupboardWorktopMaterial);
               top.position.y = unitH + topT/2; top.receiveShadow = true;
               group.add(top);
               
@@ -750,7 +798,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                                   shelf.castShadow = true;
                                   group.add(shelf);
                                   
-                                  const panel = createCabinetMesh(counterW - 0.004, shelfThickness, panelThick, materials.cabinet);
+                                  const panel = createCabinetMesh(counterW - 0.004, shelfThickness, panelThick, cupboardCabinetMaterial);
                                   panel.position.set(0, shelfH_m - shelfThickness / 2, d / 2 - panelThick / 2);
                                   panel.castShadow = true;
                                   panel.receiveShadow = true;
@@ -793,7 +841,7 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
                   const unitH = baseH - topT;
                   const base = createUnit(sepW, unitH, d, (unitH)/2, 'base', sepInnerSide, specialMixModeForBase);
                   sepGroup.add(base);
-                  const top = createUVMappedBox(sepW, topT, d, materials.worktop);
+                  const top = createUVMappedBox(sepW, topT, d, cupboardWorktopMaterial);
                   top.position.y = unitH + topT/2; top.receiveShadow = true;
                   sepGroup.add(top);
 

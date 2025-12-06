@@ -1,3 +1,5 @@
+
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDoorConfiguration } from './hooks/useDoorConfiguration';
 import CustomizationPanel, { SectionKey } from './components/CustomizationPanel';
@@ -68,6 +70,9 @@ const App: React.FC = () => {
   const [touchedSections, setTouchedSections] = useState<Set<string>>(new Set());
   const doorPreviewRef = useRef<DoorPreviewHandle>(null);
 
+  const [quoteNumber, setQuoteNumber] = useState('');
+  const [quoteConfigHash, setQuoteConfigHash] = useState('');
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setAppState('selecting');
@@ -98,6 +103,7 @@ const App: React.FC = () => {
       cupboardTypes: C.CUPBOARD_TYPES,
       cupboardStorageTypes: C.CUPBOARD_STORAGE_TYPES,
       cupboardOptionPanels: C.CUPBOARD_OPTION_PANELS,
+      cupboardEndPanels: C.CUPBOARD_END_PANELS,
       cupboardPrices: C.CUPBOARD_PRICES,
       cupboardCounterPrices: C.CUPBOARD_COUNTER_PRICES,
       cupboardDoorPrices: C.CUPBOARD_DOOR_PRICES,
@@ -241,7 +247,18 @@ const App: React.FC = () => {
           price: totalPrice,
           roomName: 'Current Plan'
       }];
-      generateDocument(type, doorsToPrint, appSettings, projectInfo, screenshotUrl);
+      
+      const currentConfigHash = JSON.stringify({ doors: doorsToPrint, projectInfo });
+      let currentQuoteNumber = quoteNumber;
+
+      if (currentConfigHash !== quoteConfigHash || !quoteNumber) {
+          currentQuoteNumber = `No. ${Date.now().toString().slice(-8)}`;
+          setQuoteNumber(currentQuoteNumber);
+          setQuoteConfigHash(currentConfigHash);
+      }
+      
+      // FIX: The order of arguments has been updated to match the new function signature in PresentationGenerator.tsx.
+      generateDocument(type, doorsToPrint, appSettings, projectInfo, currentQuoteNumber, screenshotUrl);
       setConfirmationModal({ isOpen: false, type: null });
       setShowProjectInfoModal(false); // Close project info modal after generation
   };
@@ -297,7 +314,7 @@ const App: React.FC = () => {
                 <button onClick={() => setShowProjectInfoModal(true)} className="hidden lg:flex items-center justify-center w-10 h-10 text-gray-600 bg-[#e7e4db] rounded-full hover:bg-[#dcd8cd] transition-colors shadow-sm lg:shadow-none">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </button>
               </div>

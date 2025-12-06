@@ -1,9 +1,15 @@
-
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { SavedDoor, DoorOption, DoorTypeId, FrameTypeId, ColorOption, HandleId, GlassStyleId, LockId, ProjectInfo, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, StorageOptionId, KitchenOptionId, CupboardTypeId, CupboardStorageTypeId } from '../types';
+import { SavedDoor, DoorOption, DoorTypeId, FrameTypeId, ColorOption, HandleId, GlassStyleId, LockId, ProjectInfo, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, RangeHoodOptionId, FaucetId, SinkAccessoryId, KitchenPanelId, StorageOptionId, KitchenOptionId, CupboardTypeId, CupboardStorageTypeId, CupboardEndPanelId } from '../types';
 import PrintDoorPreview from './PrintDoorPreview';
 import { getOptionName, getProxiedImageUrl } from '../utils';
+
+// FIX: Add a global declaration to extend the Window interface with the custom `clearLoadingTimeout` function. This resolves the TypeScript error where the property was not found on the `Window` type.
+declare global {
+  interface Window {
+    clearLoadingTimeout?: () => void;
+  }
+}
 
 interface Props {
   type: 'presentation' | 'quotation' | 'drawing';
@@ -28,15 +34,17 @@ interface Props {
     kitchenOptions: DoorOption<KitchenOptionId>[];
     cupboardTypes: DoorOption<CupboardTypeId>[];
     cupboardStorageTypes: DoorOption<CupboardStorageTypeId>[];
+    cupboardEndPanels: DoorOption<CupboardEndPanelId>[];
     cupboardPrices: any;
     cupboardDoorPrices: any;
     cupboardCounterPrices: any;
   };
   projectInfo: ProjectInfo;
   screenshotUrl?: string | null;
+  quoteNumber: string;
 }
 
-const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, screenshotUrl }) => {
+const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, screenshotUrl, quoteNumber }) => {
   const doorsTotal = doors.reduce((sum, d) => sum + d.price, 0);
   // Shipping cost hidden for quotation
   const shippingCost = type === 'quotation' ? 0 : (projectInfo.shippingCost || 0);
@@ -58,6 +66,11 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
       if (config.doorType === 'type-i') {
           return `奥行65cm、${sinkStr}`;
       }
+
+      if (depthStr === '90cm') {
+        return `ダイニング収納タイプ奥行90㎝、${dividerStr}、${sinkStr}`;
+      }
+
       return `カウンタータイプ 奥行${depthStr}、${dividerStr}、${sinkStr}`;
   };
 
@@ -140,7 +153,8 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                  {projectInfo.constructionCompany && <span>{projectInfo.constructionCompany} 御中</span>}
              </div>
           </div>
-          <div className="text-right">
+          <div className="text-right relative">
+            <p className="text-[10px] text-gray-500 mb-1 absolute -top-4 right-0">{quoteNumber}</p>
             <p className="text-xs text-gray-600">作成日: {today}</p>
             <p className="text-lg font-bold">LINE KITCHEN</p>
           </div>
@@ -214,24 +228,42 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
             if (hoodOpt && hoodOpt.id !== 'none') equipments.push({ label: 'フードOP', ...hoodOpt });
 
             // 4. Cupboard
-            let cupboardText = 'なし';
+            let cupboardItems: string[] = [];
             if (door.config.confirmedCupboard) {
                 const { type, width, depth } = door.config.confirmedCupboard;
                 const cType = findOpt(settings.cupboardTypes, type);
-                cupboardText = `${cType ? cType.name : type} W${width} / D${depth}`;
-                if (type === 'mix') {
-                    cupboardText += ` / ${door.config.cupboardLayout === 'left' ? '左配置' : '右配置'}`;
+                cupboardItems.push(`${cType ? cType.name : type} W${width} / D${depth}`);
+
+                const storageType = findOpt(settings.cupboardStorageTypes, door.config.cupboardStorageType);
+                if (storageType && ['tall', 'floor', 'separate', 'mix'].includes(type)) {
+                    cupboardItems.push(`収納:${storageType.name}`);
                 }
-                if (type === 'tall') {
-                  const storageType = findOpt(settings.cupboardStorageTypes, door.config.cupboardStorageType);
-                  if (storageType) {
-                    cupboardText += ` / ${storageType.name}`;
-                  }
+
+                if (type === 'mix') {
+                    cupboardItems.push(`配置:${door.config.cupboardLayout === 'left' ? '左' : '右'}`);
+                }
+
+                if (door.config.cupboardColorMode === 'separate') {
+                    const cDoorColor = findOpt(settings.colors, door.config.cupboardColor);
+                    if (cDoorColor) cupboardItems.push(`扉:${cDoorColor.name}`);
+                    if (['floor', 'separate', 'mix'].includes(type)) {
+                        const cCounterColor = findOpt(settings.colors, door.config.cupboardCounterColor);
+                        if (cCounterColor) cupboardItems.push(`カウンター:${cCounterColor.name}`);
+                    }
+                } else {
+                    cupboardItems.push('色:キッチンと同色');
+                }
+
+                const endPanel = findOpt(settings.cupboardEndPanels, door.config.cupboardEndPanel);
+                if (endPanel) {
+                    cupboardItems.push(`エンドパネル:${endPanel.name}`);
                 }
             } else if (door.config.cupboardType !== 'none') {
-                 const cType = findOpt(settings.cupboardTypes, door.config.cupboardType);
-                 cupboardText = `${cType ? cType.name : door.config.cupboardType} (未確定)`;
+                const cType = findOpt(settings.cupboardTypes, door.config.cupboardType);
+                cupboardItems.push(`${cType ? cType.name : door.config.cupboardType} (未確定)`);
             }
+            const cupboardText = cupboardItems.length > 0 ? cupboardItems.join(' / ') : 'なし';
+
 
             // 5. Options (Summary for left side)
             // Kitchen Options Summary
@@ -268,10 +300,11 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                        <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-gray-800">
                             <h2 className="text-xl font-bold text-gray-800 mb-1">
                                 {typeName}
-                                {door.roomName && <span className="ml-3 text-base font-normal text-gray-600">({door.roomName})</span>}
+                                {door.roomName && door.roomName !== 'Current Plan' && <span className="ml-3 text-base font-normal text-gray-600">({door.roomName})</span>}
                             </h2>
                             <div className="text-sm text-gray-600 font-bold mb-2">
-                                {sizeText} / {door.roomName || 'Current Plan'}
+                                {sizeText}
+                                {door.roomName && door.roomName !== 'Current Plan' ? ` / ${door.roomName}` : ''}
                             </div>
                             <div className="text-sm text-gray-700 border-t border-gray-200 pt-2">
                                 <span className="font-bold mr-2">仕様詳細:</span>
@@ -289,7 +322,6 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                                    ) : (
                                        <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 text-xs">No 3D Image</div>
                                    )}
-                                   <div className="absolute top-0 left-0 bg-gray-800 text-white text-[10px] px-3 py-1 opacity-90 font-bold">Current Plan</div>
                                </div>
                                {/* Cut 2: Plan View (Schematic) */}
                                <div className="w-1/2 bg-white rounded border border-gray-200 relative shadow-sm p-4">
@@ -324,7 +356,7 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
 
                        {/* Options List Summary */}
                        <div className="border-t border-gray-200 pt-4 text-xs space-y-2">
-                          <div className="grid grid-cols-[100px_1fr] gap-2 items-center">
+                          <div className="grid grid-cols-[100px_1fr] gap-2 items-start">
                               <span className="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded text-center">カップボード</span>
                               <span className="text-sm">{cupboardText}</span>
                           </div>
@@ -355,7 +387,7 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
                                 <div key={i} className="flex flex-row gap-3 items-center border border-gray-200 rounded p-2 bg-white shadow-sm">
                                     <div className="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-gray-50 rounded overflow-hidden p-1 border border-gray-100">
                                         {eq.swatchUrl ? (
-                                            <img src={getProxiedImageUrl(eq.swatchUrl)} className="w-full h-full object-contain" />
+                                            <img src={getProxiedImageUrl(eq.swatchUrl)} className="w-full h-full object-contain" style={{ transform: 'scale(1.25)' }} />
                                         ) : (
                                             <span className="text-[9px] text-gray-400">No Image</span>
                                         )}
@@ -402,7 +434,7 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
               </div>
           </div>
           <div className="w-1/2 text-right">
-              <p className="text-[10px] text-gray-500 mb-1">No. {Date.now().toString().slice(-8)}</p>
+              <p className="text-[10px] text-gray-500 mb-1">{quoteNumber}</p>
               <p className="text-xs mb-2">発行日: {today}</p>
               <div className="inline-block text-left">
                   <h2 className="text-lg font-bold mb-1">LINE KITCHEN</h2>
@@ -538,38 +570,63 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
 
              // 8. Cupboard
              if (config.confirmedCupboard) {
-                 const { type, depth, width } = config.confirmedCupboard;
-                 let cupboardTotal = settings.cupboardPrices?.[type]?.[depth]?.[width] || 0;
-                 
-                 const doorColorInfo = settings.colors.find(c => c.id === config.color);
-                 const premiumColors = ['gratta-light', 'gratta-dark', 'ash', 'teak', 'walnut'];
-                 if (doorColorInfo && premiumColors.includes(doorColorInfo.id) && type !== 'none') {
-                    const typeKey = type as 'floor' | 'separate' | 'tall' | 'mix'; // cast for indexing
+                const { type, depth, width } = config.confirmedCupboard;
+                let cupboardTotal = settings.cupboardPrices?.[type]?.[depth]?.[width] || 0;
+                
+                const cupboardDoorColorId = config.cupboardColorMode === 'separate' ? config.cupboardColor : config.color;
+                const doorColorInfo = settings.colors.find(c => c.id === cupboardDoorColorId);
+                const premiumColors = ['gratta-light', 'gratta-dark', 'ash', 'teak', 'walnut'];
+                if (doorColorInfo && premiumColors.includes(doorColorInfo.id) && type !== 'none') {
+                    const typeKey = type as keyof typeof settings.cupboardDoorPrices;
                     cupboardTotal += settings.cupboardDoorPrices?.[typeKey]?.['premium']?.[width] || 0;
-                 }
+                }
 
-                 if (type === 'floor' || type === 'separate') {
-                    const counterColorInfo = settings.colors.find(c => c.id === config.counterColor);
+                if (type === 'floor' || type === 'separate' || type === 'mix') {
+                    const cupboardCounterColorId = config.cupboardColorMode === 'separate' ? config.cupboardCounterColor : config.counterColor;
+                    const counterColorInfo = settings.colors.find(c => c.id === cupboardCounterColorId);
                     if (counterColorInfo && counterColorInfo.id.startsWith('stainless')) {
                         const counterKey = depth === 45 ? 'stainless450' : 'stainless600';
-                        cupboardTotal += settings.cupboardCounterPrices?.[counterKey]?.[width] || 0;
-                    }
-                 }
-                 const typeName = settings.cupboardTypes?.find(t => t.id === type)?.name || type;
-                 let specText = `${typeName} W${width} D${depth}`;
-                 
-                 if (type === 'mix') {
-                     const layoutStr = config.cupboardLayout === 'left' ? '左 (L)' : '右 (R)';
-                     specText += ` / 配置: ${layoutStr}`;
-                 }
-                 if (type === 'tall') {
-                    const storageType = settings.cupboardStorageTypes?.find(t => t.id === config.cupboardStorageType);
-                    if (storageType) {
-                        specText += ` / ${storageType.name}`;
+                        const priceWidth = type === 'mix' ? width - 90 : width;
+                        cupboardTotal += settings.cupboardCounterPrices?.[counterKey]?.[priceWidth] || 0;
                     }
                 }
-                 
-                 items.push({ name: 'カップボード一式', spec: specText, price: cupboardTotal });
+
+                const endPanelOption = settings.cupboardEndPanels?.find(p => p.id === config.cupboardEndPanel);
+                if (endPanelOption) {
+                    cupboardTotal += endPanelOption.price;
+                }
+
+                const cupboardSpecItems: string[] = [];
+                const typeName = settings.cupboardTypes?.find(t => t.id === type)?.name || type;
+                cupboardSpecItems.push(`${typeName} W${width} D${depth}`);
+
+                const storageType = settings.cupboardStorageTypes?.find(t => t.id === config.cupboardStorageType);
+                if (storageType) {
+                    cupboardSpecItems.push(`収納:${storageType.name}`);
+                }
+                
+                if (type === 'mix') {
+                    const layoutStr = config.cupboardLayout === 'left' ? '左 (L)' : '右 (R)';
+                    cupboardSpecItems.push(`配置:${layoutStr}`);
+                }
+                
+                if (config.cupboardColorMode === 'separate') {
+                    const cDoorColor = settings.colors?.find(c => c.id === config.cupboardColor);
+                    if (cDoorColor) cupboardSpecItems.push(`扉:${cDoorColor.name}`);
+                    if (['floor', 'separate', 'mix'].includes(type)) {
+                        const cCounterColor = settings.colors?.find(c => c.id === config.cupboardCounterColor);
+                        if (cCounterColor) cupboardSpecItems.push(`カウンター:${cCounterColor.name}`);
+                    }
+                } else {
+                    cupboardSpecItems.push('色:キッチンと同色');
+                }
+
+                const endPanel = settings.cupboardEndPanels?.find(p => p.id === config.cupboardEndPanel);
+                if (endPanel) {
+                    cupboardSpecItems.push(`エンドパネル:${endPanel.name}`);
+                }
+
+                items.push({ name: 'カップボード一式', spec: cupboardSpecItems.join(' / '), price: cupboardTotal });
              }
 
              return (
@@ -651,12 +708,14 @@ const PrintLayout: React.FC<Props> = ({ type, doors, settings, projectInfo, scre
     </div>
   );
 };
-
+// FIX: A required parameter cannot follow an optional parameter.
+// The required `quoteNumber` parameter has been moved before the optional `screenshotUrl` parameter.
 export const generateDocument = (
   type: 'presentation' | 'quotation' | 'drawing',
   doors: SavedDoor[],
   settings: Props['settings'],
   projectInfo: ProjectInfo,
+  quoteNumber: string,
   screenshotUrl?: string | null
 ) => {
   const newWindow = window.open('', '_blank');
@@ -677,8 +736,35 @@ export const generateDocument = (
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
         <style>
+           @keyframes spin {
+             0% { transform: rotate(0deg); }
+             100% { transform: rotate(360deg); }
+           }
+           .loader {
+             border: 4px solid #f3f3f3;
+             border-top: 4px solid #8b8070;
+             border-radius: 50%;
+             width: 50px;
+             height: 50px;
+             animation: spin 1s linear infinite;
+           }
+           #loading-overlay {
+             position: fixed;
+             top: 0;
+             left: 0;
+             width: 100%;
+             height: 100%;
+             background-color: rgba(255, 255, 255, 0.9);
+             display: flex;
+             flex-direction: column;
+             justify-content: center;
+             align-items: center;
+             z-index: 1000;
+             transition: opacity 0.3s;
+           }
            @media print {
              .no-print { display: none !important; }
+             #loading-overlay { display: none !important; }
              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
              @page { 
                 margin: 0;
@@ -687,22 +773,49 @@ export const generateDocument = (
            }
            body { 
              font-family: 'Noto Sans JP', sans-serif; 
-             background-color: #f3f4f6; /* Light gray background for preview */
+             background-color: #f3f4f6;
              margin: 0;
              padding: 20px;
            }
-           /* Simulate paper look in browser */
            #root > div {
              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
            }
            @media print {
              body { background-color: white; padding: 0; }
              #root > div { box-shadow: none; }
+             #root { visibility: visible !important; }
            }
         </style>
       </head>
       <body>
-        <div id="root"></div>
+        <div id="loading-overlay">
+          <div id="initial-loader">
+            <div class="loader"></div>
+            <p style="margin-top: 20px; font-size: 16px; color: #555;">書類を生成しています... <br/>しばらくお待ちください。</p>
+          </div>
+          <div id="timeout-message" style="display: none; text-align: center;">
+            <p style="margin-top: 20px; font-size: 16px; color: #555;">
+              生成に時間がかかっています。<br/>
+              お手数ですが、下のボタンを押してもう一度お試しください。
+            </p>
+            <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background-color: #8b8070; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+              再試行
+            </button>
+          </div>
+        </div>
+        <div id="root" style="visibility: hidden;"></div>
+        <script>
+          const timeoutId = setTimeout(() => {
+            const initialLoader = document.getElementById('initial-loader');
+            const timeoutMessage = document.getElementById('timeout-message');
+            if(initialLoader) initialLoader.style.display = 'none';
+            if(timeoutMessage) timeoutMessage.style.display = 'block';
+          }, 60000); // 1 minute timeout
+
+          window.clearLoadingTimeout = () => {
+            clearTimeout(timeoutId);
+          };
+        </script>
       </body>
     </html>
   `);
@@ -711,6 +824,26 @@ export const generateDocument = (
   const rootElement = newWindow.document.getElementById('root');
   if (rootElement) {
       const root = createRoot(rootElement);
-      root.render(<PrintLayout type={type} doors={doors} settings={settings} projectInfo={projectInfo} screenshotUrl={screenshotUrl} />);
+      root.render(<PrintLayout type={type} doors={doors} settings={settings} projectInfo={projectInfo} screenshotUrl={screenshotUrl} quoteNumber={quoteNumber} />);
+      
+      setTimeout(() => {
+          if (newWindow.closed) return;
+
+          if (typeof newWindow.clearLoadingTimeout === 'function') {
+              newWindow.clearLoadingTimeout();
+          }
+
+          const loadingOverlay = newWindow.document.getElementById('loading-overlay');
+          if (loadingOverlay) {
+              loadingOverlay.style.opacity = '0';
+              setTimeout(() => {
+                  if (!newWindow.closed && loadingOverlay) {
+                      loadingOverlay.style.display = 'none';
+                  }
+              }, 300);
+          }
+          rootElement.style.visibility = 'visible';
+          newWindow.focus();
+      }, 3000);
   }
 };

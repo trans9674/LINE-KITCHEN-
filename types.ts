@@ -61,6 +61,7 @@ export type SinkAccessoryId = 'none' | 'basket-s' | 'detergent-box' | 'cutlery-b
 export type KitchenPanelId = 'none' | 'aica-fkm6000zgn-1' | 'aica-fkm6000zgn-2' | 'aica-fkm6000zgn-3' | 'aica-fas809zmn-1' | 'aica-fas809zmn-2' | 'aica-fas809zmn-3';
 export type CupboardStorageTypeId = 'opening' | 'drawer' | 'opening-open' | 'drawer-open' | 'opening-appliance' | 'drawer-appliance';
 export type CupboardOptionPanelId = 'none' | 'one-side' | 'floor' | 'separate' | 'tall' | 'mix';
+export type CupboardEndPanelId = 'one-side' | 'both-sides';
 
 export interface DoorOption<T> {
   id: T;
@@ -137,6 +138,10 @@ export interface DoorConfiguration {
     width: number;
     depth: number;
   } | null;
+  cupboardColorMode: 'same' | 'separate';
+  cupboardColor: ColorId;
+  cupboardCounterColor: ColorId;
+  cupboardEndPanel: CupboardEndPanelId;
 }
 
 export interface SavedDoor {

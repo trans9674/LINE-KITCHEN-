@@ -1,6 +1,5 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId, CupboardStorageTypeId } from '../types';
+import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId, CupboardStorageTypeId, CupboardEndPanelId } from '../types';
 import { getProxiedImageUrl } from '../utils';
 import { HANGING_CABINET_PRICE } from '../constants';
 
@@ -25,6 +24,7 @@ interface CustomizationPanelProps {
     rangeHoodOptions: DoorOption<RangeHoodOptionId>[];
     cupboardTypes: DoorOption<any>[];
     cupboardStorageTypes: DoorOption<CupboardStorageTypeId>[];
+    cupboardEndPanels: DoorOption<CupboardEndPanelId>[];
     cupboardPrices: any;
     cupboardDoorPrices: any;
     cupboardCounterPrices: any;
@@ -119,6 +119,18 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
 
   const subPanelRef = useRef<HTMLDivElement>(null);
   const cupboardPanelRef = useRef<HTMLDivElement>(null);
+
+  const endPanelOptions = useMemo(() => {
+    return settings.cupboardEndPanels.map(opt => {
+      if (opt.id === 'both-sides') {
+        const imageUrl = config.cupboardType === 'floor'
+          ? "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/ryoumenn1.jpg"
+          : "http://25663cc9bda9549d.main.jp/aistudio/linekitchen/cupboard/ryoumen.jpg";
+        return { ...opt, swatchUrl: imageUrl };
+      }
+      return opt;
+    });
+  }, [settings.cupboardEndPanels, config.cupboardType]);
 
   const floorCupboardStorageTypes = useMemo(() => {
     if (config.cupboardType !== 'floor') return [];
@@ -504,7 +516,9 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     
     let price = settings.cupboardPrices[config.cupboardType]?.[config.cupboardDepth]?.[config.cupboardWidth] || 0;
     
-    const doorColorInfo = settings.colors.find(c => c.id === config.color);
+    const cupboardDoorColorId = config.cupboardColorMode === 'separate' ? config.cupboardColor : config.color;
+    const doorColorInfo = settings.colors.find(c => c.id === cupboardDoorColorId);
+
     const premiumColors = ['gratta-light', 'gratta-dark', 'ash', 'teak', 'walnut'];
     if (doorColorInfo && premiumColors.includes(doorColorInfo.id) && config.cupboardType !== 'none') {
         const doorPrice = settings.cupboardDoorPrices[config.cupboardType]?.['premium']?.[config.cupboardWidth] || 0;
@@ -512,15 +526,23 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
     }
 
     if (config.cupboardType === 'floor' || config.cupboardType === 'separate') {
-        const counterColorInfo = settings.colors.find(c => c.id === config.counterColor);
+        const cupboardCounterColorId = config.cupboardColorMode === 'separate' ? config.cupboardCounterColor : config.counterColor;
+        const counterColorInfo = settings.colors.find(c => c.id === cupboardCounterColorId);
+
         if (counterColorInfo && counterColorInfo.id.startsWith('stainless')) {
             const counterKey = config.cupboardDepth === 45 ? 'stainless450' : 'stainless600';
             const counterPrice = settings.cupboardCounterPrices[counterKey]?.[config.cupboardWidth] || 0;
             price += counterPrice;
         }
     }
+
+    const endPanelOption = settings.cupboardEndPanels.find(p => p.id === config.cupboardEndPanel);
+    if (endPanelOption) {
+      price += endPanelOption.price;
+    }
+
     return price;
-  }, [config.cupboardType, config.cupboardWidth, config.cupboardDepth, config.color, config.counterColor, settings]);
+  }, [config.cupboardType, config.cupboardWidth, config.cupboardDepth, config.color, config.counterColor, config.cupboardColorMode, config.cupboardColor, config.cupboardCounterColor, config.cupboardEndPanel, settings]);
 
   const handleSectionClick = (key: SectionKey) => {
     onSectionClick(key);
@@ -1065,6 +1087,55 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                     </div>
                   </div>
                 )}
+
+                <div className="pt-4 border-t border-gray-200 mt-4">
+                  <label className="block text-base font-medium text-gray-700 mb-2">カップボードカラー</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => updateConfig('cupboardColorMode', 'same')} className={`py-3 rounded-lg border ${config.cupboardColorMode === 'same' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>キッチンと同色</button>
+                    <button onClick={() => updateConfig('cupboardColorMode', 'separate')} className={`py-3 rounded-lg border ${config.cupboardColorMode === 'separate' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>違う色を選択</button>
+                  </div>
+                </div>
+                {config.cupboardColorMode === 'separate' && (
+                  <div className="pt-4 space-y-6 animate-fade-in">
+                    {['floor', 'separate', 'mix'].includes(config.cupboardType) && (
+                      <div>
+                        <h4 className="text-base font-semibold text-gray-600 mb-2 flex items-center"><span className="inline-block w-1 h-3 bg-black mr-2"></span><span>カウンターカラー</span></h4>
+                        <div className="grid grid-cols-4 gap-3 pt-1">
+                          {counterColors.map(c =>
+                            <ColorSwatch
+                              key={c.id}
+                              color={c}
+                              active={config.cupboardCounterColor === c.id}
+                              onClick={() => updateConfig('cupboardCounterColor', c.id)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-base font-semibold text-gray-600 mb-2 flex items-center"><span className="inline-block w-1 h-3 bg-black mr-2"></span><span>扉カラー</span></h4>
+                      <div className="grid grid-cols-4 gap-3 pt-1">
+                        {doorColors.map(c =>
+                          <ColorSwatch
+                            key={c.id}
+                            color={c}
+                            active={config.cupboardColor === c.id}
+                            onClick={() => updateConfig('cupboardColor', c.id)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="pt-4 border-t border-gray-200 mt-4">
+                  <VisualOptionGrid
+                    title="エンドパネル"
+                    options={endPanelOptions}
+                    selectedIds={[config.cupboardEndPanel]}
+                    onSelect={(opt) => updateConfig('cupboardEndPanel', opt.id as CupboardEndPanelId)}
+                    isMultiSelect={false}
+                  />
+                </div>
               </>
             )}
           </div>
@@ -1364,6 +1435,54 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                                   </div>
                                 </div>
                               )}
+                               <div className="pt-4 border-t border-gray-200 mt-4">
+                                <label className="block text-base font-medium text-gray-700 mb-2">カップボードカラー</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <button onClick={() => updateConfig('cupboardColorMode', 'same')} className={`py-3 rounded-lg border ${config.cupboardColorMode === 'same' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>キッチンと同色</button>
+                                  <button onClick={() => updateConfig('cupboardColorMode', 'separate')} className={`py-3 rounded-lg border ${config.cupboardColorMode === 'separate' ? 'bg-[#8b8070] text-white shadow' : 'bg-white hover:bg-gray-100'}`}>違う色を選択</button>
+                                </div>
+                              </div>
+                              {config.cupboardColorMode === 'separate' && (
+                                <div className="pt-4 space-y-6 animate-fade-in">
+                                  {['floor', 'separate', 'mix'].includes(config.cupboardType) && (
+                                    <div>
+                                      <h4 className="text-base font-semibold text-gray-600 mb-2 flex items-center"><span className="inline-block w-1 h-3 bg-black mr-2"></span><span>カウンターカラー</span></h4>
+                                      <div className="grid grid-cols-4 gap-3 pt-1">
+                                        {counterColors.map(c =>
+                                          <ColorSwatch
+                                            key={c.id}
+                                            color={c}
+                                            active={config.cupboardCounterColor === c.id}
+                                            onClick={() => updateConfig('cupboardCounterColor', c.id)}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <h4 className="text-base font-semibold text-gray-600 mb-2 flex items-center"><span className="inline-block w-1 h-3 bg-black mr-2"></span><span>扉カラー</span></h4>
+                                    <div className="grid grid-cols-4 gap-3 pt-1">
+                                      {doorColors.map(c =>
+                                        <ColorSwatch
+                                          key={c.id}
+                                          color={c}
+                                          active={config.cupboardColor === c.id}
+                                          onClick={() => updateConfig('cupboardColor', c.id)}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="pt-4 border-t border-gray-200 mt-4">
+                                <VisualOptionGrid
+                                  title="エンドパネル"
+                                  options={endPanelOptions}
+                                  selectedIds={[config.cupboardEndPanel]}
+                                  onSelect={(opt) => updateConfig('cupboardEndPanel', opt.id as CupboardEndPanelId)}
+                                  isMultiSelect={false}
+                                />
+                              </div>
                             </>
                           )}
                         </div>
@@ -1447,13 +1566,11 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
                   onClick={() => setCupboardConfirmation({ isOpen: false, onConfirm: null })}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                 >
-                  キャンセル
+                  戻る
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    cupboardConfirmation.onConfirm?.();
-                  }}
+                  onClick={() => cupboardConfirmation.onConfirm?.()}
                   className="px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
                 >
                   追加する
@@ -1463,256 +1580,210 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
           </div>
         )}
 
-        {/* Cupboard Detail Confirmation Modal */}
-        {cupboardDetailConfirmationOpen && (
-            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardDetailConfirmationOpen(false)}>
-                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="p-6">
-                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
-                        
-                        <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                            <div className="flex justify-between border-b border-gray-200 pb-2">
-                                <span className="text-gray-500 text-sm">タイプ</span>
-                                <span className="font-bold text-gray-800">
-                                    {config.cupboardType === 'none' 
-                                        ? 'なし' 
-                                        : settings.cupboardTypes.find(t => t.id === config.cupboardType)?.name}
-                                </span>
-                            </div>
-                            {config.cupboardType !== 'none' && (
-                                <>
-                                    <div className="flex justify-between border-b border-gray-200 pb-2">
-                                        <span className="text-gray-500 text-sm">サイズ</span>
-                                        <span className="font-bold text-gray-800">
-                                            W{config.cupboardWidth} / D{config.cupboardDepth}
-                                        </span>
-                                    </div>
-                                    {config.cupboardType === 'mix' && (
-                                        <div className="flex justify-between border-b border-gray-200 pb-2">
-                                            <span className="text-gray-500 text-sm">配置</span>
-                                            <span className="font-bold text-gray-800">
-                                                {config.cupboardLayout === 'left' ? '左 (L)' : '右 (R)'}
-                                            </span>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                            <div className="flex justify-between pt-2">
-                                <span className="text-gray-500 text-sm">価格</span>
-                                <span className="font-bold text-lg text-gray-800">{cupboardSelectionPrice.toLocaleString()}円</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl border-t border-gray-100">
-                        <button 
-                            type="button"
-                            onClick={() => setCupboardDetailConfirmationOpen(false)} 
-                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
-                        >
-                            戻る
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => { 
-                                setCupboardDetailConfirmationOpen(false);
-                                handleConfirmCupboard();
-                            }} 
-                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
-                        >
-                            決定
-                        </button>
-                    </div>
+        {kitchenPanelConfirmation.isOpen && (
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setKitchenPanelConfirmation({ isOpen: false, message: '', onConfirm: null })}>
+                <div className="bg-white rounded-xl shadow-lg w-[70%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                  <div className="p-8 text-center">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">付属部材</h3>
+                    <p className="text-gray-600">
+                      {kitchenPanelConfirmation.message}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl">
+                    <button
+                      type="button"
+                      onClick={() => setKitchenPanelConfirmation({ isOpen: false, message: '', onConfirm: null })}
+                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                    >
+                      戻る
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => kitchenPanelConfirmation.onConfirm?.()}
+                      className="px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
+                    >
+                      OK
+                    </button>
+                  </div>
                 </div>
             </div>
         )}
 
-        {/* Equipment Confirmation Modal */}
         {equipmentConfirmationOpen && (
-            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEquipmentConfirmationOpen(false)}>
-                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 overflow-y-auto">
-                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            {selectedEquipment.map((eq, idx) => (
-                                <div key={idx} className="flex flex-col items-center text-center p-3 border border-gray-100 bg-white rounded-lg shadow-sm">
-                                    <div className="w-24 h-24 bg-gray-50 rounded-md overflow-hidden mb-2 p-1">
-                                        {eq.item?.swatchUrl ? (
-                                            <img src={getProxiedImageUrl(eq.item.swatchUrl)} alt={eq.item.name} className="w-full h-full object-contain" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                                                {eq.item?.id === 'none' || !eq.item ? 'なし' : '画像なし'}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span className="text-xs text-gray-500">{eq.label}</span>
-                                    <p className="text-xs font-bold text-gray-800 mt-1 leading-tight line-clamp-2" style={{minHeight: '2.5em'}}>{eq.item?.name || '未選択'}</p>
-                                    <p className="text-sm font-semibold text-gray-700 mt-1">{eq.item?.price?.toLocaleString() || 0}円</p>
-                                </div>
-                            ))}
-                        </div>
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setEquipmentConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">設備オプションの選択完了</h3>
+                        <p className="text-gray-600 mb-4">
+                            他の項目も選択しますか、またはメイン画面に戻りますか？
+                        </p>
                     </div>
-                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl border-t border-gray-100">
-                        <button 
+                    <div className="bg-gray-50 px-6 py-4 flex flex-col gap-3 rounded-b-xl">
+                        <button
                             type="button"
-                            onClick={() => setEquipmentConfirmationOpen(false)} 
-                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
-                        >
-                            戻る
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => { 
+                            onClick={() => {
                                 setEquipmentConfirmationOpen(false);
                                 setActiveSubPanel(null);
                                 onSubPanelClose();
-                            }} 
-                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                            }}
+                            className="w-full px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
                         >
-                            決定
+                            メイン画面に戻る
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setEquipmentConfirmationOpen(false)}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            続けて他の設備を選択
                         </button>
                     </div>
                 </div>
             </div>
         )}
-
-        {/* Color Confirmation Modal */}
-        {colorConfirmationOpen && (
-            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setColorConfirmationOpen(false)}>
-                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="p-6">
-                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
-                        <div className="grid grid-cols-2 gap-6">
-                            {selectedColors.map((c, idx) => (
-                                <div key={idx} className="flex flex-col items-center text-center">
-                                    <div className="w-32 h-32 bg-gray-50 rounded-lg overflow-hidden mb-3 border-4 border-white shadow-md">
-                                        {c.item?.swatchUrl && <img src={getProxiedImageUrl(c.item.swatchUrl)} alt={c.item.name} className="w-full h-full object-cover" />}
-                                    </div>
-                                    <span className="text-sm text-gray-500">{c.label}</span>
-                                    <p className="text-base font-bold text-gray-800 mt-1">{c.item?.name || '未選択'}</p>
-                                </div>
-                            ))}
-                        </div>
+        {cupboardDetailConfirmationOpen && (
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setCupboardDetailConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">カップボードの選択完了</h3>
+                        <p className="text-gray-600 mb-4">
+                            この内容でカップボードを確定しますか？
+                        </p>
                     </div>
-                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl border-t border-gray-100">
-                        <button 
+                    <div className="bg-gray-50 px-6 py-4 flex flex-col gap-3 rounded-b-xl">
+                        <button
                             type="button"
-                            onClick={() => setColorConfirmationOpen(false)} 
-                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
+                            onClick={() => {
+                                handleConfirmCupboard();
+                                setCupboardDetailConfirmationOpen(false);
+                            }}
+                            className="w-full px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
                         >
-                            戻る
+                            確定してメイン画面に戻る
                         </button>
-                        <button 
+                        <button
                             type="button"
-                            onClick={() => { 
+                            onClick={() => setCupboardDetailConfirmationOpen(false)}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            続けてカップボードを編集
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {colorConfirmationOpen && (
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setColorConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">カラーの選択完了</h3>
+                        <p className="text-gray-600 mb-4">
+                            この内容でカラーを確定しますか？
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex flex-col gap-3 rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => {
                                 setColorConfirmationOpen(false);
                                 setActiveSubPanel(null);
                                 onSubPanelClose();
-                            }} 
-                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                            }}
+                            className="w-full px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
                         >
-                            決定
+                            確定してメイン画面に戻る
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setColorSelectionStep('counter');
+                                setColorConfirmationOpen(false);
+                            }}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            カラーを再選択
                         </button>
                     </div>
                 </div>
             </div>
         )}
-        
-        {/* Other Options Confirmation Modal */}
         {otherConfirmationOpen && (
-            <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setOtherConfirmationOpen(false)}>
-                <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-lg m-4 flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-                    <div className="p-6 overflow-y-auto">
-                        <h3 className="text-lg font-bold text-gray-800 text-center mb-6">この内容でよろしいですか？</h3>
-                        <div className="space-y-3">
-                            {selectedOtherOptions.length > 0 ? (
-                                selectedOtherOptions.map((opt, idx) => (
-                                    <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                        <div>
-                                            <span className="text-xs text-gray-500">{opt.label}</span>
-                                            <p className="font-bold text-gray-800">{opt.item?.name}</p>
-                                        </div>
-                                        <span className="font-bold text-gray-700">{opt.item?.price?.toLocaleString()}円</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-center text-gray-500 py-4">オプションは選択されていません。</p>
-                            )}
-                        </div>
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setOtherConfirmationOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4">その他オプションの選択完了</h3>
+                        <p className="text-gray-600 mb-4">
+                            メイン画面に戻りますか？
+                        </p>
                     </div>
-                    <div className="bg-gray-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-xl border-t border-gray-100">
-                        <button 
+                    <div className="bg-gray-50 px-6 py-4 flex flex-col gap-3 rounded-b-xl">
+                        <button
                             type="button"
-                            onClick={() => setOtherConfirmationOpen(false)} 
-                            className="px-6 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-bold text-sm"
-                        >
-                            戻る
-                        </button>
-                        <button 
-                            type="button"
-                            onClick={() => { 
+                            onClick={() => {
                                 setOtherConfirmationOpen(false);
                                 setActiveSubPanel(null);
                                 onSubPanelClose();
-                            }} 
-                            className="px-6 py-2.5 bg-[#8b8070] hover:bg-[#797061] text-white rounded-lg transition-colors font-bold text-sm shadow-md"
+                            }}
+                            className="w-full px-4 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors"
                         >
-                            決定
+                            メイン画面に戻る
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setOtherConfirmationOpen(false)}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            続けてオプションを編集
                         </button>
                     </div>
                 </div>
             </div>
         )}
-
-        {/* Heating Warning Modal */}
         {heatingWarningOpen && (
-          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setHeatingWarningOpen(false)}>
-            <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="p-8 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">注意事項</h3>
-                <p className="text-gray-600 text-sm">
-                  「加熱機器なし」を選択した場合、お客様にてご用意いただくコンロは<strong className="text-red-600">必ずグリル付きの製品を設置</strong>してください。グリルレスのコンロは設置できません。
-                </p>
-              </div>
-              <div className="bg-gray-50 px-6 py-4 flex justify-end items-center rounded-b-xl">
-                <button
-                  type="button"
-                  onClick={() => setHeatingWarningOpen(false)}
-                  className="px-6 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors font-bold"
-                >
-                  確認しました
-                </button>
-              </div>
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setHeatingWarningOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-red-600 mb-4">加熱機器に関する注意事項</h3>
+                        <p className="text-gray-600 mb-4">
+                        支給される加熱機器は、必ずグリル付きの製品を設置してください。
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setHeatingWarningOpen(false)}
+                            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
         )}
-
-        {/* Dishwasher Warning Modal */}
         {dishwasherWarningOpen && (
-          <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setDishwasherWarningOpen(false)}>
-            <div className="bg-white rounded-xl shadow-2xl w-[90%] max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="p-8 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">注意事項</h3>
-                <p className="text-gray-600 text-sm">
-                  「食洗機なし」を選択した場合、<strong className="text-red-600">後から食洗機を設置することはできません。</strong>ご注意ください。
-                </p>
-              </div>
-              <div className="bg-gray-50 px-6 py-4 flex justify-end items-center rounded-b-xl">
-                <button
-                  type="button"
-                  onClick={() => setDishwasherWarningOpen(false)}
-                  className="px-6 py-2 bg-[#8b8070] hover:bg-[#797061] text-white rounded-md transition-colors font-bold"
-                >
-                  確認しました
-                </button>
-              </div>
+            <div className="absolute inset-0 z-40 flex items-start pt-8 justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setDishwasherWarningOpen(false)}>
+                <div className="bg-white rounded-xl shadow-lg w-1/2 max-w-md m-4 flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-8 text-center">
+                        <h3 className="text-xl font-bold text-red-600 mb-4">食洗機に関する注意事項</h3>
+                        <p className="text-gray-600 mb-4">
+                        食洗機なしの場合、給排水工事は現場手配となります。
+                        </p>
+                    </div>
+                    <div className="bg-gray-50 px-6 py-4 flex justify-end rounded-b-xl">
+                        <button
+                            type="button"
+                            onClick={() => setDishwasherWarningOpen(false)}
+                            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
             </div>
-          </div>
         )}
     </div>
   );
 };
 
-// FIX: Add default export to resolve import error in App.tsx.
+// FIX: Export the CustomizationPanel component as default to fix the import error in App.tsx.
 export default CustomizationPanel;

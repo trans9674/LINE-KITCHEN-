@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useCallback } from 'react';
-import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, FaucetId, StorageOptionId, KitchenOptionId, SinkAccessoryId, KitchenPanelId } from '../types';
+import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, FrameTypeId, HandleId, GlassStyleId, LockId, DividerId, DishwasherId, GasStoveId, IhHeaterId, RangeHoodId, FaucetId, StorageOptionId, KitchenOptionId, SinkAccessoryId, KitchenPanelId, CupboardEndPanelId } from '../types';
 import { INITIAL_CONFIG, CUPBOARD_PRICES, CUPBOARD_COUNTER_PRICES, CUPBOARD_DOOR_PRICES, COLORS, TYPE_II_ISLAND_UPCHARGE, HANGING_CABINET_PRICE } from '../constants';
 
 interface AppSettings {
@@ -18,6 +18,7 @@ interface AppSettings {
   cupboardPrices: typeof CUPBOARD_PRICES;
   cupboardCounterPrices: typeof CUPBOARD_COUNTER_PRICES;
   cupboardDoorPrices: typeof CUPBOARD_DOOR_PRICES;
+  cupboardEndPanels: DoorOption<CupboardEndPanelId>[];
   // Other settings...
   [key: string]: any;
 }
@@ -42,6 +43,7 @@ export const useDoorConfiguration = (settings: AppSettings) => {
       }
       if (key === 'cupboardType' && value === 'none') {
         newConfig.confirmedCupboard = null;
+        newConfig.cupboardColorMode = 'same';
       }
 
       // If cupboard type is changed to tall or mix, and depth is not 45, reset depth to 45.
@@ -224,7 +226,8 @@ export const useDoorConfiguration = (settings: AppSettings) => {
       total += basePrice;
 
       // Cupboard door color upcharge
-      const doorColorInfo = COLORS.find(c => c.id === config.color);
+      const cupboardDoorColorId = config.cupboardColorMode === 'separate' ? config.cupboardColor : config.color;
+      const doorColorInfo = COLORS.find(c => c.id === cupboardDoorColorId);
       const premiumColors = ['gratta-light', 'gratta-dark', 'ash', 'teak', 'walnut'];
       if (doorColorInfo && premiumColors.includes(doorColorInfo.id) && type !== 'none') {
         const doorPrice = settings.cupboardDoorPrices[type]?.['premium']?.[width] || 0;
@@ -232,13 +235,27 @@ export const useDoorConfiguration = (settings: AppSettings) => {
       }
 
       // Cupboard counter upcharge (for floor and separate types)
-      if (type === 'floor' || type === 'separate') {
-        const counterColorInfo = COLORS.find(c => c.id === config.counterColor);
+      if (type === 'floor' || type === 'separate' || type === 'mix') {
+        const cupboardCounterColorId = config.cupboardColorMode === 'separate' ? config.cupboardCounterColor : config.counterColor;
+        const counterColorInfo = COLORS.find(c => c.id === cupboardCounterColorId);
         if (counterColorInfo && counterColorInfo.id.startsWith('stainless')) {
-          const counterKey = depth === 45 ? 'stainless450' : 'stainless600';
-          const counterPrice = settings.cupboardCounterPrices[counterKey]?.[width] || 0;
+          const counterKey = depth === 45 ? 'stainless450' : 'stainless600'; // Note: 'mix' type always has depth 45
+          
+          let priceWidth = width;
+          if (type === 'mix') {
+            // For mix type, the counter is on the 'separate' part, which is `width - 90cm`.
+            priceWidth = width - 90;
+          }
+
+          const counterPrice = settings.cupboardCounterPrices[counterKey]?.[priceWidth] || 0;
           total += counterPrice;
         }
+      }
+
+      // Add end panel price
+      const endPanelOption = settings.cupboardEndPanels.find(p => p.id === config.cupboardEndPanel);
+      if (endPanelOption) {
+        total += endPanelOption.price;
       }
     }
     

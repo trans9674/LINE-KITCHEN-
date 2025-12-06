@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { SavedDoor, DoorOption, DoorTypeId, ColorId, HandleId, ColorOption, FrameTypeId, GlassStyleId, LockId, ProjectInfo } from '../types';
 import { generateDocument } from './PresentationGenerator';
@@ -87,9 +89,10 @@ interface DoorListProps {
 }
 
 const DoorList: React.FC<DoorListProps> = ({ doors, onDelete, onUpdate, doorTypes, colors, notificationMessage, notificationType, projectInfo }) => {
+  const [quoteNumber, setQuoteNumber] = useState('');
   const totalListPrice = doors.reduce((sum, door) => sum + door.price, 0);
   
-  const handleGenerateDocument = (type: 'presentation' | 'quotation') => {
+  const handleGenerateDocument = (type: 'presentation' | 'quotation' | 'drawing') => {
     // Mock settings for generator
     const settings = { 
         doorTypes, 
@@ -110,13 +113,21 @@ const DoorList: React.FC<DoorListProps> = ({ doors, onDelete, onUpdate, doorType
         storageOptions: [],
         kitchenOptions: [],
         cupboardTypes: [],
-        // FIX: Add missing 'cupboardStorageTypes' property to the mocked settings object.
         cupboardStorageTypes: [],
+        cupboardEndPanels: [],
         cupboardPrices: {},
         cupboardDoorPrices: {},
         cupboardCounterPrices: {}
     };
-    generateDocument(type, doors, settings, projectInfo);
+    // FIX: Expected 6 arguments, but got 4.
+    // Added logic to generate and pass the required `quoteNumber`.
+    let currentQuoteNumber = quoteNumber;
+    if (!currentQuoteNumber) {
+        currentQuoteNumber = `No. ${Date.now().toString().slice(-8)}`;
+        setQuoteNumber(currentQuoteNumber);
+    }
+    // The `drawing` type is passed to satisfy the function signature, though it's not a user option on this component.
+    generateDocument(type, doors, settings, projectInfo, currentQuoteNumber);
   };
 
   return (

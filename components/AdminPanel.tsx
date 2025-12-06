@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { PREFECTURES } from '../constants';
 
@@ -25,6 +26,7 @@ const categoryNames: { [key: string]: string } = {
   cupboardTypes: 'カップボードタイプ',
   cupboardStorageTypes: 'カップボード収納タイプ',
   cupboardOptionPanels: 'カップボードオプションパネル',
+  cupboardEndPanels: 'カップボードエンドパネル',
 };
 
 const cupboardTypeNames: { [key: string]: string } = {
