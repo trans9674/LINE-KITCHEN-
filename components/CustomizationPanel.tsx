@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DoorConfiguration, DoorOption, ColorOption, DoorTypeId, ColorId, KitchenOptionId, SinkAccessoryId, GasStoveId, IhHeaterId, DishwasherId, FaucetId, RangeHoodId, KitchenPanelId, RangeHoodOptionId, CupboardStorageTypeId } from '../types';
 import { getProxiedImageUrl } from '../utils';
@@ -1384,7 +1385,7 @@ const CustomizationPanel: React.FC<CustomizationPanelProps> = ({ config, updateC
             {/* Price Display */}
             <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white/80 backdrop-blur-sm z-10 hidden lg:block">
                 <div className="flex justify-between items-center">
-                    <p className="text-base text-gray-600">見積り価格 <span className="text-sm">(税別)</span></p>
+                    <p className="text-base text-gray-600">キッチン本体参考価格 <span className="text-sm">(税別)</span></p>
                     <p className="text-3xl lg:text-4xl font-bold text-gray-800 tracking-tight">{totalPrice.toLocaleString()} <span className="text-base font-normal">円</span></p>
                 </div>
             </div>

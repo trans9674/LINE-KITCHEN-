@@ -1733,14 +1733,14 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.8; // Changed from 1.0 to 0.8 for darker, richer colors
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // High contrast
+    renderer.toneMappingExposure = 1.0; // Standard exposure
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xcccccc); // Changed from 0xe5e5e5 to 0xcccccc
+    scene.background = new THREE.Color(0xf5f5f5); // Bright white-ish gray
     sceneRef.current = scene;
 
     // Camera
@@ -1773,16 +1773,27 @@ const DoorPreview = forwardRef<DoorPreviewHandle, DoorPreviewProps>(({ config, c
     scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); // Changed from 0.5 to 0.4
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); // Standard ambient
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2); // Changed from 1.0 to 1.2
+    // Hemisphere Light: Sky/Ground contrast
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6); // Natural sky/ground
+    hemiLight.position.set(0, 20, 0);
+    scene.add(hemiLight);
+
+    // Directional (Key): Warm color for vibrancy
+    const dirLight = new THREE.DirectionalLight(0xffd966, 2.0); // Warm yellow/orange as requested
     dirLight.position.set(5, 10, 7);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.bias = -0.0001;
     scene.add(dirLight);
+
+    // Fill light from top/front to reduce harsh shadows
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    topLight.position.set(-2, 8, 5);
+    scene.add(topLight);
 
     // Floor
     const floorGeo = new THREE.PlaneGeometry(20, 20);
